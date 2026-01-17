@@ -1,2 +1,1 @@
-# Build-OpenWrt
-编译OpenWrt、iStoreOS、FanchmWrt等固件
+在线编译FanchmWrt固件源码
