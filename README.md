@@ -1,4 +1,4 @@
-本编译代码引用自"“P3TERX/Actions-OpenWrt”"
+本编译代码引用自"P3TERX/Actions-OpenWrt"
 
 编译FanchmWrt
 
