@@ -13,6 +13,8 @@ env:
   CONFIG_FILE: FanchmWrt/fanchmwrt.config
   DIY_P1_SH: FanchmWrt/diy-part1.sh
   DIY_P2_SH: FanchmWrt/diy-part2.sh
+  # 新增：插件信息文本文件路径（可自定义，建议和配置文件同目录）
+  PLUGINS_FILE: FanchmWrt/plugins.txt
   UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
@@ -80,18 +82,37 @@ jobs:
         make -j$(nproc) || make -j1 || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
         
-        # ========== 核心修改：保留原始架构名称，不替换下划线 ==========
-        # 1. 获取设备型号（如generic）
+        # 保留原始架构名称，组合完整设备型号
         DEVICE=$(grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/')
-        # 2. 获取原始架构名称（如x86_64，不做任何格式化）
         ARCH=$(grep '^CONFIG_TARGET_ARCH_PACKAGES=' .config | sed -r 's/.*="(.*)"/\1/')
-        # 3. 组合完整设备名称（如generic x86_64）
         FULL_DEVICE_NAME="${DEVICE} ${ARCH}"
-        # 4. 写入环境变量（保留原DEVICE_NAME兼容其他逻辑）
         [ -n "$DEVICE" ] && echo "DEVICE_NAME=_$DEVICE" >> $GITHUB_ENV
         echo "FULL_DEVICE_NAME=$FULL_DEVICE_NAME" >> $GITHUB_ENV
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
     
+    # 新增：从固件中提取默认管理IP（核心步骤）
+    - name: 提取固件默认管理IP
+      id: extract_ip
+      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      run: |
+        cd fanchmwrt
+        # 定位固件网络配置文件（OpenWrt/FanchmWrt标准路径，优先读取自定义files目录，其次读编译产物）
+        if [ -f "files/etc/config/network" ]; then
+          NETWORK_CONF="files/etc/config/network"
+        elif [ -f "bin/targets/*/*/rootfs/etc/config/network" ]; then
+          NETWORK_CONF=$(find bin/targets -name "network" -path "*/rootfs/etc/config/*" | head -1)
+        else
+          NETWORK_CONF=""
+        fi
+        # 从配置文件中提取lan口IP（默认取第一个lan口ipaddr）
+        if [ -n "$NETWORK_CONF" ]; then
+          MANAGE_IP=$(grep -A 10 'config interface 'lan'' "$NETWORK_CONF" | grep 'option ipaddr' | sed -r 's/.*ipaddr[[:space:]]*"(.*)"/\1/' | head -1)
+        fi
+        # 异常处理：未提取到IP时设默认值
+        MANAGE_IP=${MANAGE_IP:-"192.168.1.1"}
+        echo "MANAGE_IP=$MANAGE_IP" >> $GITHUB_ENV
+        echo "✅ 提取到固件管理IP：$MANAGE_IP（未提取到时使用默认值）"
+
     - name: 编译失败邮件通知
       if: failure()
       uses: dawidd6/action-send-mail@v3
@@ -137,17 +158,41 @@ jobs:
         name: FanchmWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE }}
 
+    # 新增：读取集成插件信息（核心步骤）
+    - name: 读取集成插件信息
+      id: plugins
+      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      run: |
+        # 判断插件文本文件是否存在
+        if [ -f "$PLUGINS_FILE" ]; then
+          # 读取文件内容，存入环境变量（保留换行格式）
+          PLUGINS_CONTENT=$(cat "$PLUGINS_FILE" | sed ':a;N;$!ba;s/\n/\\n/g')
+          echo "PLUGINS_CONTENT=$PLUGINS_CONTENT" >> $GITHUB_ENV
+        else
+          # 文件不存在时显示默认提示
+          echo "PLUGINS_CONTENT=暂无集成插件说明（可创建 $PLUGINS_FILE 文件添加）" >> $GITHUB_ENV
+        fi
+
     - name: 生成发布标签(Generate release tag)
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
         echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
-        # 直接使用原始架构的完整设备名称
+        # 构建Release描述内容，新增IP、账号密码、插件信息
         echo "## FanchmWrt 固件编译自动发布" > release.txt
         echo "- 编译时间：$(date +"%Y-%m-%d %H:%M:%S")" >> release.txt
         echo "- 设备型号：${{ env.FULL_DEVICE_NAME }}" >> release.txt
         echo "- 固件名称：FanchmWrt-x86-64-generic-squashfs-combined-efi.img.gz" >> release.txt
-        [ ${UPLOAD_GOFILE} = true && ${{ steps.gofile.outputs.url }} ] && echo "🔗 [GoFile](${{ steps.gofile.outputs.url }})" >> release.txt
+        # 优化：使用从固件中提取的动态管理IP
+        echo -e "\n### 🔐 默认登录信息" >> release.txt
+        echo "- 管理IP：${{ env.MANAGE_IP }}（自动提取固件配置，无需手动修改）" >> release.txt
+        echo "- 登录账号：root（可根据实际配置调整）" >> release.txt
+        echo "- 登录密码：password（可根据实际配置调整）" >> release.txt
+        # 新增：集成插件信息（读取环境变量内容，还原换行）
+        echo -e "\n### 📦 集成插件信息" >> release.txt
+        echo "${{ env.PLUGINS_CONTENT }}" | sed 's/\\n/\n/g' >> release.txt
+        # 原有GoFile链接（保留）
+        [ ${UPLOAD_GOFILE} = true && ${{ steps.gofile.outputs.url }} ] && echo -e "\n🔗 [GoFile](${{ steps.gofile.outputs.url }})" >> release.txt
         echo "status=success" >> $GITHUB_OUTPUT
         
     - name: 重命名固件文件(Rename firmware file)
