@@ -1,0 +1,5 @@
+1. 科学上网插件：无
+2. 网络工具：Bandix（流量监控），OpenVpn（异地组网），DDNS-Go（动态域名）
+3. AC：集客AC控制器（用于管理集客AP）
+4. 系统监控：WatchDog（看门狗）
+5. 实用工具：Commands（自定义命令），TimedReboot（定时重启），TTYD（终端）
