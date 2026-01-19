@@ -65,6 +65,24 @@ jobs:
         chmod +x $DIY_P2_SH
         cd fanchmwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
+
+    - name: 提取固件默认管理IP（适配config_generate修改）
+      id: extract_ip
+      run: |
+        cd fanchmwrt
+        MANAGE_IP=""
+        CONFIG_GENERATE="package/base-files/files/bin/config_generate"
+        if [ -f "$CONFIG_GENERATE" ]; then
+          MANAGE_IP=$(grep -oP '192\.168\.\d+\.\d+' "$CONFIG_GENERATE" | head -1)
+        fi
+        if [ -z "$MANAGE_IP" ] && [ -f "files/etc/config/network" ]; then
+          MANAGE_IP=$(grep -A 10 'config interface 'lan'' "files/etc/config/network" | grep 'option ipaddr' | sed -r 's/.*ipaddr[[:space:]]*"(.*)"/\1/' | head -1)
+        fi
+        MANAGE_IP=${MANAGE_IP:-"192.168.1.1"}
+        
+        echo "MANAGE_IP=$MANAGE_IP" >> $GITHUB_ENV
+        echo "✅ 提取到的管理IP（来自config_generate）：$MANAGE_IP"
+
     - name: 下载软件包(Download package)
       id: package
       run: |
@@ -88,41 +106,46 @@ jobs:
         [ -n "$DEVICE" ] && echo "DEVICE_NAME=_$DEVICE" >> $GITHUB_ENV
         echo "FULL_DEVICE_NAME=$FULL_DEVICE_NAME" >> $GITHUB_ENV
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
-    
-    # 自动提取固件管理IP
-    - name: 提取固件默认管理IP
-      id: extract_ip
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-      run: |
-        cd fanchmwrt
-        if [ -f "files/etc/config/network" ]; then
-          NETWORK_CONF="files/etc/config/network"
-        elif [ -f "bin/targets/*/*/rootfs/etc/config/network" ]; then
-          NETWORK_CONF=$(find bin/targets -name "network" -path "*/rootfs/etc/config/*" | head -1)
-        else
-          NETWORK_CONF=""
-        fi
-        if [ -n "$NETWORK_CONF" ]; then
-          MANAGE_IP=$(grep -A 10 'config interface 'lan'' "$NETWORK_CONF" | grep 'option ipaddr' | sed -r 's/.*ipaddr[[:space:]]*"(.*)"/\1/' | head -1)
-        fi
-        MANAGE_IP=${MANAGE_IP:-"192.168.1.1"}
-        echo "MANAGE_IP=$MANAGE_IP" >> $GITHUB_ENV
 
+    # ========== 新增：编译成功邮件通知 ==========
+    - name: 编译成功邮件通知
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.qq.com
+        server_port: 465
+        username: ${{ secrets.EMAIL_USER }}       # 复用发件邮箱密钥
+        password: ${{ secrets.EMAIL_PASS }}       # 复用发件邮箱授权码
+        subject: FanchmWrt固件编译成功通知
+        body: |
+          您好，FanchmWrt固件编译已成功完成！
+          关键信息如下：
+          1. 编译时间：$(date +"%Y-%m-%d %H:%M:%S")
+          2. 设备型号：${{ env.FULL_DEVICE_NAME }}
+          3. 固件管理IP：${{ env.MANAGE_IP }}
+          4. 工作流ID：${{ github.run_id }}
+          5. Release链接：https://github.com/${{ github.repository }}/releases/tag/$(date +"%Y.%m.%d-%H%M")
+          6. 日志链接：https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        to: ${{ secrets.RECEIVE_EMAIL }}          # 复用收件邮箱密钥
+        from: GitHub Actions
+        secure: true
+
+    # ========== 原有：编译失败邮件通知（保留） ==========
     - name: 编译失败邮件通知
       if: failure()
       uses: dawidd6/action-send-mail@v3
       with:
         server_address: smtp.qq.com
         server_port: 465
-        username: ${{ secrets.EMAIL_USER }}       # 发件邮箱账号（密钥）
-        password: ${{ secrets.EMAIL_PASS }}       # 发件邮箱授权码（密钥）
+        username: ${{ secrets.EMAIL_USER }}
+        password: ${{ secrets.EMAIL_PASS }}
         subject: FanchmWrt固件编译失败通知
         body: |
           您好，FanchmWrt固件编译工作流运行失败！
           仓库地址：${{ github.repository }}
           工作流运行ID：${{ github.run_id }}
           日志链接：https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        to: ${{ secrets.RECEIVE_EMAIL }}          # 关键修改：收件邮箱改为密钥读取
+        to: ${{ secrets.RECEIVE_EMAIL }}
         from: GitHub Actions
         secure: true
 
@@ -174,7 +197,7 @@ jobs:
         echo "- 设备型号：${{ env.FULL_DEVICE_NAME }}" >> release.txt
         echo "- 固件名称：FanchmWrt-x86-64-generic-squashfs-combined-efi.img.gz" >> release.txt
         echo -e "\n### 🔐 默认登录信息" >> release.txt
-        echo "- 管理IP：${{ env.MANAGE_IP }}（自动提取固件配置）" >> release.txt
+        echo "- 管理IP：${{ env.MANAGE_IP }}（来自config_generate修改）" >> release.txt
         echo "- 登录账号：root" >> release.txt
         echo "- 登录密码：password" >> release.txt
         echo -e "\n### 📦 集成插件信息" >> release.txt
@@ -216,7 +239,6 @@ jobs:
         keep_minimum_runs: 2
 
     - name: 删除旧版本(Remove old Releases)
-      # 修复版本：使用官方稳定版v0.3.0
       uses: dev-drprasad/delete-older-releases@v0.3.0
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       with:
