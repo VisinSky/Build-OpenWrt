@@ -83,6 +83,16 @@ jobs:
         echo "MANAGE_IP=$MANAGE_IP" >> $GITHUB_ENV
         echo "✅ 提取到的管理IP（来自config_generate）：$MANAGE_IP"
 
+    - name: 生成动态变量（编译时间/Release标签）
+      id: gen_vars
+      run: |
+        COMPILE_TIME=$(date +"%Y-%m-%d %H:%M:%S")
+        RELEASE_TAG=$(date +"%Y.%m.%d-%H%M")
+        echo "COMPILE_TIME=$COMPILE_TIME" >> $GITHUB_ENV
+        echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_ENV
+        echo "✅ 生成的编译时间：$COMPILE_TIME"
+        echo "✅ 生成的Release标签：$RELEASE_TAG"
+
     - name: 下载软件包(Download package)
       id: package
       run: |
@@ -91,6 +101,15 @@ jobs:
         make download -j8
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
+
+    # ========== 新增1：记录编译开始时间（时间戳） ==========
+    - name: 记录编译开始时间
+      id: start_compile
+      run: |
+        COMPILE_START=$(date +%s)
+        echo "COMPILE_START=$COMPILE_START" >> $GITHUB_ENV
+        echo "✅ 编译开始时间戳：$COMPILE_START"
+
     - name: 编译固件(Compile the firmware)
       id: compile
       run: |
@@ -107,30 +126,47 @@ jobs:
         echo "FULL_DEVICE_NAME=$FULL_DEVICE_NAME" >> $GITHUB_ENV
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
 
-    # ========== 新增：编译成功邮件通知 ==========
+    # ========== 新增2：计算编译时长（转换为H:M:S格式） ==========
+    - name: 计算编译时长
+      id: calc_duration
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      run: |
+        COMPILE_END=$(date +%s)
+        # 计算总秒数差值
+        DURATION_SEC=$((COMPILE_END - COMPILE_START))
+        # 转换为小时:分钟:秒格式
+        HOURS=$((DURATION_SEC / 3600))
+        MINUTES=$(((DURATION_SEC % 3600) / 60))
+        SECONDS=$((DURATION_SEC % 60))
+        # 格式化显示（补零，比如0小时5分钟8秒显示为00:05:08）
+        COMPILE_DURATION=$(printf "%02d:%02d:%02d" $HOURS $MINUTES $SECONDS)
+        echo "COMPILE_DURATION=$COMPILE_DURATION" >> $GITHUB_ENV
+        echo "✅ 编译总耗时：$COMPILE_DURATION（H:M:S）"
+
+    # ========== 修改：成功邮件加入编译时长 ==========
     - name: 编译成功邮件通知
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
       uses: dawidd6/action-send-mail@v3
       with:
         server_address: smtp.qq.com
         server_port: 465
-        username: ${{ secrets.EMAIL_USER }}       # 复用发件邮箱密钥
-        password: ${{ secrets.EMAIL_PASS }}       # 复用发件邮箱授权码
+        username: ${{ secrets.EMAIL_USER }}
+        password: ${{ secrets.EMAIL_PASS }}
         subject: FanchmWrt固件编译成功通知
         body: |
           您好，FanchmWrt固件编译已成功完成！
           关键信息如下：
-          1. 编译时间：$(date +"%Y-%m-%d %H:%M:%S")
-          2. 设备型号：${{ env.FULL_DEVICE_NAME }}
-          3. 固件管理IP：${{ env.MANAGE_IP }}
-          4. 工作流ID：${{ github.run_id }}
-          5. Release链接：https://github.com/${{ github.repository }}/releases/tag/$(date +"%Y.%m.%d-%H%M")
-          6. 日志链接：https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        to: ${{ secrets.RECEIVE_EMAIL }}          # 复用收件邮箱密钥
+          1. 编译时间：${{ env.COMPILE_TIME }}
+          2. 编译时长：${{ env.COMPILE_DURATION }}（小时:分钟:秒）
+          3. 设备型号：${{ env.FULL_DEVICE_NAME }}
+          4. 固件管理IP：${{ env.MANAGE_IP }}
+          5. 工作流ID：${{ github.run_id }}
+          6. Release链接：https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }}
+          7. 日志链接：https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        to: ${{ secrets.RECEIVE_EMAIL }}
         from: GitHub Actions
         secure: true
 
-    # ========== 原有：编译失败邮件通知（保留） ==========
     - name: 编译失败邮件通知
       if: failure()
       uses: dawidd6/action-send-mail@v3
@@ -175,7 +211,6 @@ jobs:
         name: FanchmWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE }}
 
-    # 读取插件信息
     - name: 读取集成插件信息
       id: plugins
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
@@ -191,9 +226,10 @@ jobs:
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
-        echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
+        echo "release_tag=${{ env.RELEASE_TAG }}" >> $GITHUB_OUTPUT
         echo "## FanchmWrt 固件编译自动发布" > release.txt
-        echo "- 编译时间：$(date +"%Y-%m-%d %H:%M:%S")" >> release.txt
+        echo "- 编译时间：${{ env.COMPILE_TIME }}" >> release.txt
+        echo "- 编译时长：${{ env.COMPILE_DURATION }}（小时:分钟:秒）" >> release.txt  # Release也显示时长
         echo "- 设备型号：${{ env.FULL_DEVICE_NAME }}" >> release.txt
         echo "- 固件名称：FanchmWrt-x86-64-generic-squashfs-combined-efi.img.gz" >> release.txt
         echo -e "\n### 🔐 默认登录信息" >> release.txt
