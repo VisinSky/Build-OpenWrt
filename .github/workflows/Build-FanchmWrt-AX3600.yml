@@ -243,7 +243,7 @@ jobs:
     - name: 重命名固件文件(Rename firmware file)
       if: steps.tag.outputs.status == 'success' && !cancelled()
       run: |
-        find "${{ env.FIRMWARE }}" -name "openwrt-*.bin" -exec bash -c '
+        find "${{ env.FIRMWARE }}" -name "openwrt-*.*" -exec bash -c '
           for file do
             if [ -f "$file" ]; then
               new_file="${file/openwrt-/FanchmWrt-}"
@@ -264,7 +264,7 @@ jobs:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: |
-          ${{ env.FIRMWARE }}/FanchmWrt-*.bin
+          ${{ env.FIRMWARE }}/FanchmWrt-*.*
           ${{ env.FIRMWARE }}/sha256sums
         overwrite: true
 
