@@ -10,7 +10,6 @@ env:
   REPO_URL: https://github.com/fanchmwrt/fanchmwrt/
   REPO_BRANCH: fanchmwrt-24.10.4
   FEEDS_CONF: FanchmWrt/feeds.conf.default
-  # 为两个设备分别配置config文件（需提前准备）
   CONFIG_FILE_X86: FanchmWrt/fanchmwrt-x86_64.config
   CONFIG_FILE_AX3600: FanchmWrt/fanchmwrt-ax3600.config
   DIY_P1_SH: FanchmWrt/diy-part1.sh
@@ -143,9 +142,19 @@ jobs:
     - name: 备份X86/64固件(Backup X86/64 firmware)
       if: steps.compile_x86.outputs.status == 'success' && !cancelled()
       run: |
-        mkdir -p $GITHUB_WORKSPACE/firmware/x86_64
-        cp -r fanchmwrt/bin/targets/x86/64/* $GITHUB_WORKSPACE/firmware/x86_64/
-        echo "✅ X86/64固件已备份到：$GITHUB_WORKSPACE/firmware/x86_64"
+        # 先检查编译产物是否存在
+        X86_OUTPUT_DIR="fanchmwrt/bin/targets/x86/64"
+        if [ -d "$X86_OUTPUT_DIR" ] && [ -n "$(ls -A $X86_OUTPUT_DIR)" ]; then
+          # 确保目标目录存在
+          mkdir -p $GITHUB_WORKSPACE/firmware/x86_64
+          # 复制所有固件文件（包括img.gz、bin、sha256sums等）
+          cp -r $X86_OUTPUT_DIR/* $GITHUB_WORKSPACE/firmware/x86_64/
+          echo "✅ X86/64固件已备份到：$GITHUB_WORKSPACE/firmware/x86_64"
+          # 列出备份的文件，方便排查
+          ls -l $GITHUB_WORKSPACE/firmware/x86_64/
+        else
+          echo "⚠️ X86/64编译产物目录为空或不存在：$X86_OUTPUT_DIR，跳过备份"
+        fi
 
     # ===================== 第二步：编译AX3600固件 =====================
     - name: 清理编译环境(清理X86/64产物，避免冲突)
@@ -224,9 +233,19 @@ jobs:
     - name: 备份AX3600固件(Backup AX3600 firmware)
       if: steps.compile_ax3600.outputs.status == 'success' && !cancelled()
       run: |
-        mkdir -p $GITHUB_WORKSPACE/firmware/ax3600
-        cp -r fanchmwrt/bin/targets/ipq807x/generic/* $GITHUB_WORKSPACE/firmware/ax3600/
-        echo "✅ AX3600固件已备份到：$GITHUB_WORKSPACE/firmware/ax3600"
+        # 先检查编译产物是否存在
+        AX3600_OUTPUT_DIR="fanchmwrt/bin/targets/ipq807x/generic"
+        if [ -d "$AX3600_OUTPUT_DIR" ] && [ -n "$(ls -A $AX3600_OUTPUT_DIR)" ]; then
+          # 确保目标目录存在
+          mkdir -p $GITHUB_WORKSPACE/firmware/ax3600
+          # 复制所有固件文件
+          cp -r $AX3600_OUTPUT_DIR/* $GITHUB_WORKSPACE/firmware/ax3600/
+          echo "✅ AX3600固件已备份到：$GITHUB_WORKSPACE/firmware/ax3600"
+          # 列出备份的文件，方便排查
+          ls -l $GITHUB_WORKSPACE/firmware/ax3600/
+        else
+          echo "⚠️ AX3600编译产物目录为空或不存在：$AX3600_OUTPUT_DIR，跳过备份"
+        fi
 
     # ===================== 通知与上传 =====================
     - name: 编译成功邮件通知
@@ -329,23 +348,46 @@ jobs:
     - name: 重命名固件文件(Rename firmware file)
       if: steps.tag.outputs.status == 'success' && !cancelled()
       run: |
-        # 重命名X86/64固件
-        find "$GITHUB_WORKSPACE/firmware/x86_64" -name "openwrt-*.img.gz" -exec bash -c '
-          for file do
-            new_file="${file/openwrt-/FanchmWrt-x86_64-}"
-            mv "$file" "$new_file"
-            echo "✅ X86/64固件重命名：$new_file"
-          done
-        ' bash {} +
+        # 定义固件根目录
+        FIRMWARE_ROOT="$GITHUB_WORKSPACE/firmware"
         
-        # 重命名AX3600固件
-        find "$GITHUB_WORKSPACE/firmware/ax3600" -name "openwrt-*.bin" -o -name "openwrt-*.img.gz" -exec bash -c '
-          for file do
-            new_file="${file/openwrt-/FanchmWrt-ax3600-}"
-            mv "$file" "$new_file"
-            echo "✅ AX3600固件重命名：$new_file"
-          done
-        ' bash {} +
+        # ===================== 重命名X86/64固件 =====================
+        X86_DIR="${FIRMWARE_ROOT}/x86_64"
+        if [ -d "$X86_DIR" ]; then
+          echo "🔍 检测到X86/64固件目录：$X86_DIR，开始重命名..."
+          find "$X86_DIR" -name "openwrt-*.img.gz" -exec bash -c '
+            for file do
+              if [ -f "$file" ]; then
+                new_file="${file/openwrt-/FanchmWrt-x86_64-}"
+                mv "$file" "$new_file"
+                echo "✅ X86/64固件重命名：$new_file"
+              else
+                echo "⚠️ 跳过非文件：$file"
+              fi
+            done
+          ' bash {} + || echo "⚠️ X86/64固件重命名时无匹配文件，跳过"
+        else
+          echo "⚠️ X86/64固件目录不存在：$X86_DIR，跳过重命名"
+        fi
+        
+        # ===================== 重命名AX3600固件 =====================
+        AX3600_DIR="${FIRMWARE_ROOT}/ax3600"
+        if [ -d "$AX3600_DIR" ]; then
+          echo "🔍 检测到AX3600固件目录：$AX3600_DIR，开始重命名..."
+          find "$AX3600_DIR" \( -name "openwrt-*.bin" -o -name "openwrt-*.img.gz" \) -exec bash -c '
+            for file do
+              if [ -f "$file" ]; then
+                new_file="${file/openwrt-/FanchmWrt-ax3600-}"
+                mv "$file" "$new_file"
+                echo "✅ AX3600固件重命名：$new_file"
+              else
+                echo "⚠️ 跳过非文件：$file"
+              fi
+            done
+          ' bash {} + || echo "⚠️ AX3600固件重命名时无匹配文件，跳过"
+        else
+          echo "⚠️ AX3600固件目录不存在：$AX3600_DIR，跳过重命名"
+        fi
           
     - name: 上传固件到Release
       uses: softprops/action-gh-release@v1
