@@ -10,7 +10,7 @@ env:
   REPO_URL: https://github.com/fanchmwrt/fanchmwrt/
   REPO_BRANCH: fanchmwrt-24.10.4
   FEEDS_CONF: FanchmWrt/feeds.conf.default
-  CONFIG_FILE: FanchmWrt/fanchmwrt.config
+  CONFIG_FILE: FanchmWrt/fanchmwrtamd64.config
   DIY_P1_SH: FanchmWrt/diy-part1.sh
   DIY_P2_SH: FanchmWrt/diy-part2.sh
   PLUGINS_FILE: FanchmWrt/plugins.txt
