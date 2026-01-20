@@ -52,7 +52,13 @@ jobs:
     - name: 加载自定义订阅源(Load custom feeds)
       run: |
         [ -e $FEEDS_CONF ] && mv $FEEDS_CONF fanchmwrt/feeds.conf.default
-        chmod +x $DIY_P1_SH
+        # 给diy-part1.sh添加可执行权限（确保执行）
+        if [ -e $DIY_P1_SH ]; then
+          chmod +x $DIY_P1_SH
+          echo "✅ 已给$DIY_P1_SH添加可执行权限"
+        else
+          echo "⚠️ $DIY_P1_SH文件不存在，跳过权限设置"
+        fi
         cd fanchmwrt
         $GITHUB_WORKSPACE/$DIY_P1_SH
 
@@ -77,6 +83,13 @@ jobs:
     - name: 加载X86/64自定义配置(Load X86/64 config)
       run: |
         [ -e $CONFIG_FILE_X86 ] && mv $CONFIG_FILE_X86 fanchmwrt/.config || echo "⚠️ X86/64配置文件不存在，使用默认配置"
+        # 给diy-part2.sh添加可执行权限（核心修复点）
+        if [ -e $DIY_P2_SH ]; then
+          chmod +x $DIY_P2_SH
+          echo "✅ 已给$DIY_P2_SH添加可执行权限"
+        else
+          echo "⚠️ $DIY_P2_SH文件不存在，跳过权限设置"
+        fi
         cd fanchmwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
 
@@ -168,6 +181,13 @@ jobs:
     - name: 加载AX3600自定义配置(Load AX3600 config)
       run: |
         [ -e $CONFIG_FILE_AX3600 ] && mv $CONFIG_FILE_AX3600 fanchmwrt/.config || echo "⚠️ AX3600配置文件不存在，使用默认配置"
+        # 再次给diy-part2.sh加权限（防止清理环境时丢失）
+        if [ -e $DIY_P2_SH ]; then
+          chmod +x $DIY_P2_SH
+          echo "✅ 再次给$DIY_P2_SH添加可执行权限"
+        else
+          echo "⚠️ $DIY_P2_SH文件不存在，跳过权限设置"
+        fi
         cd fanchmwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
 
