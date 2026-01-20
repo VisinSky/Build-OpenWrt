@@ -1,4 +1,4 @@
-name: 编译 FanchmWrt
+name: 编译x86+ax3600
 
 on:
   repository_dispatch:
