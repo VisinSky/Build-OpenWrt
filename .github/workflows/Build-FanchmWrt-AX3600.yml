@@ -222,7 +222,23 @@ jobs:
           echo "PLUGINS_CONTENT=暂无集成插件说明（可创建 $PLUGINS_FILE 文件添加）" >> $GITHUB_ENV
         fi
 
-    # ========== 核心修改：生成发布标签（动态获取固件名称） ==========
+    # ========== 调整：重命名固件文件移到生成发布标签之前 ==========
+    - name: 重命名固件文件(Rename firmware file)
+      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      run: |
+        find "${{ env.FIRMWARE }}" -name "openwrt-*.*" -exec bash -c '
+          for file do
+            if [ -f "$file" ]; then
+              new_file="${file/openwrt-/FanchmWrt-}"
+              mv "$file" "$new_file"
+              echo "✅ 固件文件重命名成功：$new_file"
+            else
+              echo "⚠️ 文件不存在，跳过：$file"
+            fi
+          done
+        ' bash {} +
+
+    # ========== 核心修改：生成发布标签（精准筛选固件文件） ==========
     - name: 生成发布标签(Generate release tag)
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
@@ -234,25 +250,21 @@ jobs:
         echo "- 编译时长：${{ env.COMPILE_DURATION }}（小时:分钟:秒）" >> release.txt
         echo "- 设备型号：${{ env.FULL_DEVICE_NAME }}" >> release.txt
         
-        # 动态获取所有固件文件名
+        # 动态获取固件文件（仅匹配.ubi/.itb/.bin后缀的固件，彻底排除配置文件）
         echo -e "\n### 📦 固件文件列表" >> release.txt
-        # 遍历FIRMWARE目录下的固件文件（排除sha256sums、packages等非固件文件）
         if [ -d "${{ env.FIRMWARE }}" ]; then
-          # 筛选出主要固件文件（匹配FanchmWrt开头的文件，排除目录和sha256sums）
-          FIRMWARE_FILES=$(find "${{ env.FIRMWARE }}" -maxdepth 1 -type f -name "FanchmWrt-*" ! -name "sha256sums")
+          # 只筛选真正的固件文件（后缀为ubi/itb/bin）
+          FIRMWARE_FILES=$(find "${{ env.FIRMWARE }}" -maxdepth 1 -type f -name "FanchmWrt-*" \
+            \( -name "*.ubi" -o -name "*.itb" -o -name "*.bin" \))
+          
           if [ -n "$FIRMWARE_FILES" ]; then
             # 逐行写入固件名称
             while IFS= read -r file; do
-              # 只保留文件名（去掉路径）
               filename=$(basename "$file")
               echo "- $filename" >> release.txt
             done <<< "$FIRMWARE_FILES"
           else
-            # 兜底：如果没找到FanchmWrt开头的文件，显示所有非sha256sums的文件
-            echo "- 未找到FanchmWrt前缀固件，以下是所有编译产物：" >> release.txt
-            find "${{ env.FIRMWARE }}" -maxdepth 1 -type f ! -name "sha256sums" -exec basename {} \; | while read -r file; do
-              echo "  - $file" >> release.txt
-            done
+            echo "- 未识别到固件文件（ubi/itb/bin）" >> release.txt
           fi
         else
           echo "- 固件目录不存在，无固件文件" >> release.txt
@@ -266,22 +278,8 @@ jobs:
         echo -e "\n### 📦 集成插件信息" >> release.txt
         echo "${{ env.PLUGINS_CONTENT }}" | sed 's/\\n/\n/g' >> release.txt
         echo "status=success" >> $GITHUB_OUTPUT
-        
-    - name: 重命名固件文件(Rename firmware file)
-      if: steps.tag.outputs.status == 'success' && !cancelled()
-      run: |
-        find "${{ env.FIRMWARE }}" -name "openwrt-*.*" -exec bash -c '
-          for file do
-            if [ -f "$file" ]; then
-              new_file="${file/openwrt-/FanchmWrt-}"
-              mv "$file" "$new_file"
-              echo "✅ 固件文件重命名成功：$new_file"
-            else
-              echo "⚠️ 文件不存在，跳过：$file"
-            fi
-          done
-        ' bash {} +
           
+    # ========== 核心修改：上传固件到Release（禁用Source code） ==========
     - name: 上传固件到 Release
       uses: softprops/action-gh-release@v1
       if: steps.tag.outputs.status == 'success' && !cancelled()
@@ -290,10 +288,17 @@ jobs:
       with:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
+        # 仅上传指定后缀的固件文件和sha256sums
         files: |
-          ${{ env.FIRMWARE }}/FanchmWrt-*.*
+          ${{ env.FIRMWARE }}/FanchmWrt-*.ubi
+          ${{ env.FIRMWARE }}/FanchmWrt-*.itb
+          ${{ env.FIRMWARE }}/FanchmWrt-*.bin
           ${{ env.FIRMWARE }}/sha256sums
         overwrite: true
+        generate_release_notes: false  # 禁用自动生成release笔记
+        draft: false  # 非草稿
+        prerelease: false  # 非预发布
+        fail_on_unmatched_files: false  # 避免文件匹配不到时报错
 
     - name: 删除运行的工作流(Delete workflow runs)
       uses: Mattraks/delete-workflow-runs@v2
