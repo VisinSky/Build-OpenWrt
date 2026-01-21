@@ -222,16 +222,43 @@ jobs:
           echo "PLUGINS_CONTENT=暂无集成插件说明（可创建 $PLUGINS_FILE 文件添加）" >> $GITHUB_ENV
         fi
 
+    # ========== 核心修改：生成发布标签（动态获取固件名称） ==========
     - name: 生成发布标签(Generate release tag)
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
         echo "release_tag=${{ env.RELEASE_TAG }}" >> $GITHUB_OUTPUT
+        # 初始化release.txt
         echo "## FanchmWrt 固件编译自动发布" > release.txt
         echo "- 编译时间：${{ env.COMPILE_TIME }}" >> release.txt
-        echo "- 编译时长：${{ env.COMPILE_DURATION }}（小时:分钟:秒）" >> release.txt  # Release也显示时长
+        echo "- 编译时长：${{ env.COMPILE_DURATION }}（小时:分钟:秒）" >> release.txt
         echo "- 设备型号：${{ env.FULL_DEVICE_NAME }}" >> release.txt
-        echo "- 固件名称：FanchmWrt-x86-64-generic-squashfs-combined-efi.img.gz" >> release.txt
+        
+        # 动态获取所有固件文件名
+        echo -e "\n### 📦 固件文件列表" >> release.txt
+        # 遍历FIRMWARE目录下的固件文件（排除sha256sums、packages等非固件文件）
+        if [ -d "${{ env.FIRMWARE }}" ]; then
+          # 筛选出主要固件文件（匹配FanchmWrt开头的文件，排除目录和sha256sums）
+          FIRMWARE_FILES=$(find "${{ env.FIRMWARE }}" -maxdepth 1 -type f -name "FanchmWrt-*" ! -name "sha256sums")
+          if [ -n "$FIRMWARE_FILES" ]; then
+            # 逐行写入固件名称
+            while IFS= read -r file; do
+              # 只保留文件名（去掉路径）
+              filename=$(basename "$file")
+              echo "- $filename" >> release.txt
+            done <<< "$FIRMWARE_FILES"
+          else
+            # 兜底：如果没找到FanchmWrt开头的文件，显示所有非sha256sums的文件
+            echo "- 未找到FanchmWrt前缀固件，以下是所有编译产物：" >> release.txt
+            find "${{ env.FIRMWARE }}" -maxdepth 1 -type f ! -name "sha256sums" -exec basename {} \; | while read -r file; do
+              echo "  - $file" >> release.txt
+            done
+          fi
+        else
+          echo "- 固件目录不存在，无固件文件" >> release.txt
+        fi
+        
+        # 原有内容保留
         echo -e "\n### 🔐 默认登录信息" >> release.txt
         echo "- 管理IP：${{ env.MANAGE_IP }}（来自config_generate修改）" >> release.txt
         echo "- 登录账号：root" >> release.txt
