@@ -10,4 +10,4 @@ src-git fanchmwrt https://github.com/fanchmwrt/fanchmwrt-packages.git
 # src-git lucky https://github.com/gdy666/luci-app-lucky.git
 src-git bandix https://github.com/timsaya/openwrt-bandix.git
 src-git bandixapp https://github.com/timsaya/luci-app-bandix.git
-src-git timedreboot https://github.com/kiddin9/luci-app-timedreboot.git
+# src-git timedreboot https://github.com/kiddin9/luci-app-timedreboot.git
