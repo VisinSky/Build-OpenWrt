@@ -1,4 +1,4 @@
-name: Build-FanchmWrt-X86-64
+name: test-Build-FanchmWrt-X86-64
 on:
   repository_dispatch:
   workflow_dispatch:
