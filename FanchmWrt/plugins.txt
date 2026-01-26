@@ -1,5 +1,66 @@
-1. 科学上网插件：无
-2. 网络工具：Bandix（流量监控），OpenVpn（异地组网），DDNS-Go（动态域名）
-3. AC：集客AC控制器（用于管理集客AP）
-4. 系统监控：WatchDog（看门狗）
-5. 实用工具：Commands（自定义命令），TimedReboot（定时重启），TTYD（终端）
+# ==================== 系统自带插件排除清单 ====================
+# 说明：每行一个插件名（支持通配符，如luci-lib-*），会被过滤不显示
+SYSTEM_PLUGIN: base-files
+SYSTEM_PLUGIN: busybox
+SYSTEM_PLUGIN: dnsmasq
+SYSTEM_PLUGIN: dropbear
+SYSTEM_PLUGIN: firewall
+SYSTEM_PLUGIN: fstools
+SYSTEM_PLUGIN: ip6tables
+SYSTEM_PLUGIN: iptables
+SYSTEM_PLUGIN: kmod-*
+SYSTEM_PLUGIN: libc
+SYSTEM_PLUGIN: libgcc
+SYSTEM_PLUGIN: logd
+SYSTEM_PLUGIN: mtd
+SYSTEM_PLUGIN: netifd
+SYSTEM_PLUGIN: opkg
+SYSTEM_PLUGIN: procd
+SYSTEM_PLUGIN: rpcd
+SYSTEM_PLUGIN: uci
+SYSTEM_PLUGIN: udevd
+SYSTEM_PLUGIN: wpad
+SYSTEM_PLUGIN: luci-base
+SYSTEM_PLUGIN: luci-lib-*
+SYSTEM_PLUGIN: luci-mod-*
+SYSTEM_PLUGIN: luci-proto-*
+SYSTEM_PLUGIN: luci-theme-*
+SYSTEM_PLUGIN: ppp
+SYSTEM_PLUGIN: pppoe
+SYSTEM_PLUGIN: pppox
+SYSTEM_PLUGIN: odhcp6c
+SYSTEM_PLUGIN: odhcpd-ipv6only
+SYSTEM_PLUGIN: ca-certificates
+SYSTEM_PLUGIN: openssl-util
+
+# ==================== 插件中文介绍映射 ====================
+# 说明：格式为【插件名=中文介绍】，每行一个，可自行补充
+PLUGIN_CN: luci-app-passwall=PassWall - 科学上网工具（支持多种协议）
+PLUGIN_CN: luci-app-openclash=OpenClash - 科学上网工具（Clash核心）
+PLUGIN_CN: luci-app-ssr-plus=SSR-Plus - 科学上网工具（SSR/SS/V2Ray等）
+PLUGIN_CN: luci-app-vssr=VSSR - 科学上网工具（V2Ray/SSR整合）
+PLUGIN_CN: luci-app-adguardhome=AdGuard Home - 本地DNS广告过滤
+PLUGIN_CN: luci-app-smartdns=SmartDNS - 智能DNS解析（防污染/提速）
+PLUGIN_CN: luci-app-dnsmasq-full=Dnsmasq全功能 - 本地DNS增强
+PLUGIN_CN: luci-app-samba4=Samba4 - 局域网文件共享（Windows/Mac）
+PLUGIN_CN: luci-app-minidlna=miniDLNA - 局域网媒体服务器（投屏）
+PLUGIN_CN: luci-app-aria2=Aria2 - 多协议下载工具（BT/HTTP/FTP）
+PLUGIN_CN: luci-app-qbittorrent=qBittorrent - BT下载工具（带Web界面）
+PLUGIN_CN: luci-app-nps=NPS - 内网穿透工具（服务端/客户端）
+PLUGIN_CN: luci-app-frps=FRP - 内网穿透工具（客户端）
+PLUGIN_CN: luci-app-frpc=FRP - 内网穿透工具（服务端）
+PLUGIN_CN: luci-app-ddns=DDNS - 动态域名解析（适配主流域名商）
+PLUGIN_CN: luci-app-upnp=UPnP - 自动端口映射
+PLUGIN_CN: luci-app-wol=WOL - 网络唤醒（远程开机）
+PLUGIN_CN: luci-app-netdata=Netdata - 系统实时监控（可视化）
+PLUGIN_CN: luci-app-cpu-status=CPU状态 - 处理器监控（频率/负载）
+PLUGIN_CN: luci-app-bandwidthd=Bandwidthd - 网络流量统计
+PLUGIN_CN: luci-app-syncdial=多线拨号 - 宽带多拨叠加
+PLUGIN_CN: luci-app-mwan3=MWAN3 - 多线负载均衡/故障切换
+PLUGIN_CN: luci-app-flowoffload=硬件流转发 - 网络加速（降低CPU占用）
+PLUGIN_CN: luci-app-hd-idle=HD Idle - 硬盘休眠工具（保护机械硬盘）
+PLUGIN_CN: luci-app-usb-printer=USB打印机 - 局域网打印机共享
+PLUGIN_CN: luci-app-zerotier=ZeroTier - 虚拟局域网（异地组网）
+PLUGIN_CN: luci-app-tailscale=Tailscale - 虚拟局域网（异地组网，免配置）
+PLUGIN_CN: luci-app-openvpn=OpenVPN - 虚拟专用网络（服务端/客户端）
+PLUGIN_CN: luci-app-wireguard=WireGuard - 轻量级虚拟专用网络（高速）
