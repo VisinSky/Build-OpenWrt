@@ -21,7 +21,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04  # 核心修改1：改为Ubuntu24.04
 
     steps:
     - name: 检测(Checkout)
@@ -34,15 +34,10 @@ jobs:
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
         sudo docker image prune --all --force
         sudo -E apt-get -qq update
-        sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
-        # ========== 新增：安装/升级Go环境（修复ddns-go编译） ==========
-        sudo rm -rf /usr/local/go
-        wget https://dl.google.com/go/go1.21.6.linux-amd64.tar.gz
-        sudo tar -C /usr/local -xzf go1.21.6.linux-amd64.tar.gz
-        echo 'export PATH=$PATH:/usr/local/go/bin' >> $HOME/.bashrc
-        source $HOME/.bashrc
-        go version
-        # ========== 结束新增 ==========
+        # 核心修改2：适配24.04，移除python2.7，替换为python2；libncurses5-dev→libncurses-dev
+        sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python2 python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+        # 核心修改3：24.04需手动建立python2软链接，保证编译调用兼容
+        sudo ln -sf /usr/bin/python2 /usr/bin/python || true
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
@@ -65,18 +60,6 @@ jobs:
 
     - name: 安装软件源(Install feeds)
       run: cd fanchmwrt && ./scripts/feeds install -a
-
-    # ========== 新增：修复ddns-go Makefile（兼容新版Go） ==========
-    - name: 修复ddns-go编译配置
-      run: |
-        cd fanchmwrt/feeds/smallpackage/ddns-go
-        # 修改Makefile中的Go编译参数
-        sed -i 's/GO_PKG_BUILD_FLAGS := /GO_PKG_BUILD_FLAGS := CGO_ENABLED=0 /g' Makefile
-        sed -i 's/GO_PKG_LDFLAGS := /GO_PKG_LDFLAGS := -s -w /g' Makefile
-        # 强制使用新版Go编译
-        echo 'export PATH=/usr/local/go/bin:$PATH' >> Makefile
-        cd -
-    # ========== 结束新增 ==========
 
     - name: 加载自定义配置(Load custom configuration)
       run: |
@@ -122,7 +105,6 @@ jobs:
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
-    # ========== 新增1：记录编译开始时间（时间戳） ==========
     - name: 记录编译开始时间
       id: start_compile
       run: |
@@ -134,13 +116,10 @@ jobs:
       id: compile
       run: |
         cd fanchmwrt
-        # 确保Go环境生效
-        export PATH=/usr/local/go/bin:$PATH
         echo -e "$(nproc) thread compile"
         make -j$(nproc) || make -j1 || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
         
-        # 提取完整设备型号
         DEVICE=$(grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/')
         ARCH=$(grep '^CONFIG_TARGET_ARCH_PACKAGES=' .config | sed -r 's/.*="(.*)"/\1/')
         FULL_DEVICE_NAME="${DEVICE} ${ARCH}"
@@ -148,24 +127,19 @@ jobs:
         echo "FULL_DEVICE_NAME=$FULL_DEVICE_NAME" >> $GITHUB_ENV
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
 
-    # ========== 新增2：计算编译时长（转换为H:M:S格式） ==========
     - name: 计算编译时长
       id: calc_duration
       if: steps.compile.outputs.status == 'success' && !cancelled()
       run: |
         COMPILE_END=$(date +%s)
-        # 计算总秒数差值
         DURATION_SEC=$((COMPILE_END - COMPILE_START))
-        # 转换为小时:分钟:秒格式
         HOURS=$((DURATION_SEC / 3600))
         MINUTES=$(((DURATION_SEC % 3600) / 60))
         SECONDS=$((DURATION_SEC % 60))
-        # 格式化显示（补零，比如0小时5分钟8秒显示为00:05:08）
         COMPILE_DURATION=$(printf "%02d:%02d:%02d" $HOURS $MINUTES $SECONDS)
         echo "COMPILE_DURATION=$COMPILE_DURATION" >> $GITHUB_ENV
         echo "✅ 编译总耗时：$COMPILE_DURATION（H:M:S）"
 
-    # ========== 修改：成功邮件加入编译时长 ==========
     - name: 编译成功邮件通知
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
       uses: dawidd6/action-send-mail@v3
@@ -178,13 +152,14 @@ jobs:
         body: |
           您好，FanchmWrt固件编译已成功完成！
           关键信息如下：
-          1. 编译时间：${{ env.COMPILE_TIME }}
-          2. 编译时长：${{ env.COMPILE_DURATION }}（小时:分钟:秒）
-          3. 设备型号：${{ env.FULL_DEVICE_NAME }}
-          4. 固件管理IP：${{ env.MANAGE_IP }}
-          5. 工作流ID：${{ github.run_id }}
-          6. Release链接：https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }}
-          7. 日志链接：https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          1. 编译环境：Ubuntu 24.04
+          2. 编译时间：${{ env.COMPILE_TIME }}
+          3. 编译时长：${{ env.COMPILE_DURATION }}（小时:分钟:秒）
+          4. 设备型号：${{ env.FULL_DEVICE_NAME }}
+          5. 固件管理IP：${{ env.MANAGE_IP }}
+          6. 工作流ID：${{ github.run_id }}
+          7. Release链接：https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }}
+          8. 日志链接：https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         to: ${{ secrets.RECEIVE_EMAIL }}
         from: GitHub Actions
         secure: true
@@ -200,6 +175,7 @@ jobs:
         subject: FanchmWrt固件编译失败通知
         body: |
           您好，FanchmWrt固件编译工作流运行失败！
+          编译环境：Ubuntu 24.04
           仓库地址：${{ github.repository }}
           工作流运行ID：${{ github.run_id }}
           日志链接：https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -249,9 +225,10 @@ jobs:
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
         echo "release_tag=${{ env.RELEASE_TAG }}" >> $GITHUB_OUTPUT
-        echo "## FanchmWrt 固件编译自动发布" > release.txt
+        echo "## FanchmWrt 固件编译自动发布（Ubuntu 24.04）" > release.txt
+        echo "- 编译环境：Ubuntu 24.04 X86_64" >> release.txt
         echo "- 编译时间：${{ env.COMPILE_TIME }}" >> release.txt
-        echo "- 编译时长：${{ env.COMPILE_DURATION }}（小时:分钟:秒）" >> release.txt  # Release也显示时长
+        echo "- 编译时长：${{ env.COMPILE_DURATION }}（小时:分钟:秒）" >> release.txt
         echo "- 设备型号：${{ env.FULL_DEVICE_NAME }}" >> release.txt
         echo "- 固件名称：FanchmWrt-x86-64-generic-squashfs-combined-efi.img.gz" >> release.txt
         echo -e "\n### 🔐 默认登录信息" >> release.txt
