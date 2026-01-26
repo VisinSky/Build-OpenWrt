@@ -12,7 +12,7 @@ env:
   CONFIG_FILE: FanchmWrt/fanchmwrtamd64.config
   DIY_P1_SH: FanchmWrt/diy-part1.sh
   DIY_P2_SH: FanchmWrt/diy-part2.sh
-  PLUGINS_FILE: FanchmWrt/plugins.txt
+  PLUGINS_FILE: FanchmWrt/plugins.txt # 指向plugins.txt文件
   UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
@@ -162,17 +162,6 @@ jobs:
           name: FanchmWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
           path: ${{ env.FIRMWARE }}
 
-      - name: 读取集成插件信息
-        id: plugins
-        if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
-        run: |
-          if [ -f "$PLUGINS_FILE" ]; then
-            PLUGINS_CONTENT=$(cat "$PLUGINS_FILE" | sed ':a;N;$!ba;s/\n/\\n/g')
-            echo "PLUGINS_CONTENT=$PLUGINS_CONTENT" >> $GITHUB_ENV
-          else
-            echo "PLUGINS_CONTENT=暂无集成插件说明（可创建 $PLUGINS_FILE 文件添加）" >> $GITHUB_ENV
-          fi
-
       - name: 重命名固件文件(Rename firmware file)
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
         run: |
@@ -188,7 +177,89 @@ jobs:
             done
           ' bash {} +
 
-      # ========== 新增：获取固件列表并写入环境变量（邮件/Release共用） ==========
+      # ========== 核心修改：读取plugins.txt解析系统排除清单+插件中文介绍 ==========
+      - name: 提取固件集成插件列表（读取plugins.txt+排除系统插件+带中文介绍）
+        id: plugins
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
+        run: |
+          cd fanchmwrt
+          # 1. 初始化默认值（plugins.txt不存在时兜底）
+          DEFAULT_SYSTEM_PLUGINS=(
+            "base-files" "busybox" "dnsmasq" "dropbear" "firewall" "fstools"
+            "ip6tables" "iptables" "kmod-*" "libc" "libgcc" "logd" "mtd" "netifd"
+            "opkg" "procd" "rpcd" "uci" "udevd" "wpad" "luci-base" "luci-lib-*"
+            "luci-mod-*" "luci-proto-*" "luci-theme-*" "ppp" "pppoe" "pppox" "odhcp6c"
+            "odhcpd-ipv6only" "ca-certificates" "openssl-util"
+          )
+          declare -A DEFAULT_PLUGIN_CN_MAP=(
+            ["luci-app-passwall"]="PassWall - 科学上网工具（支持多种协议）"
+            ["luci-app-openclash"]="OpenClash - 科学上网工具（Clash核心）"
+            ["luci-app-ssr-plus"]="SSR-Plus - 科学上网工具（SSR/SS/V2Ray等）"
+          )
+
+          # 2. 读取plugins.txt解析配置
+          SYSTEM_PLUGINS=()
+          declare -A PLUGIN_CN_MAP=()
+          if [ -f "${{ env.PLUGINS_FILE }}" ]; then
+            echo "✅ 找到plugins.txt，开始解析配置..."
+            # 解析系统排除插件（过滤注释/空行，提取SYSTEM_PLUGIN: 后内容）
+            while IFS= read -r line; do
+              # 跳过注释和空行
+              [[ $line =~ ^# || -z $line ]] && continue
+              # 提取SYSTEM_PLUGIN: 前缀的内容
+              if [[ $line =~ ^SYSTEM_PLUGIN:[[:space:]]*(.*) ]]; then
+                sys_plugin=${BASH_REMATCH[1]}
+                [ -n "$sys_plugin" ] && SYSTEM_PLUGINS+=("$sys_plugin")
+              fi
+              # 提取PLUGIN_CN: 前缀的内容（格式：插件名=介绍）
+              if [[ $line =~ ^PLUGIN_CN:[[:space:]]*(.*)=(.*) ]]; then
+                plugin=${BASH_REMATCH[1]}
+                desc=${BASH_REMATCH[2]}
+                [ -n "$plugin" ] && PLUGIN_CN_MAP["$plugin"]="$desc"
+              fi
+            done < "${{ env.PLUGINS_FILE }}"
+          else
+            echo "⚠️ 未找到plugins.txt，使用默认系统排除清单和插件介绍..."
+            SYSTEM_PLUGINS=("${DEFAULT_SYSTEM_PLUGINS[@]}")
+            PLUGIN_CN_MAP=("${DEFAULT_PLUGIN_CN_MAP[@]}")
+          fi
+
+          # 3. 从编译配置提取已选中的所有插件
+          ALL_PLUGINS=$(grep -E '^CONFIG_PACKAGE_.+=y' .config | sed -r 's/CONFIG_PACKAGE_(.+)=y/\1/' | sort)
+          
+          # 4. 过滤排除系统插件，匹配中文介绍
+          CUSTOM_PLUGINS=""
+          for plugin in $ALL_PLUGINS; do
+            is_system=0
+            # 判断是否为系统插件（支持通配符匹配）
+            for sys_plugin in "${SYSTEM_PLUGINS[@]}"; do
+              # 处理通配符（如kmod-*）
+              if [[ $sys_plugin == *"*"* ]]; then
+                pattern=${sys_plugin//\*/.*}
+                [[ $plugin =~ ^$pattern$ ]] && is_system=1 && break
+              else
+                [[ $plugin == "$sys_plugin" ]] && is_system=1 && break
+              fi
+            done
+            # 非系统插件，匹配中文介绍
+            if [ $is_system -eq 0 ]; then
+              cn_desc=${PLUGIN_CN_MAP[$plugin]:-"暂无中文介绍"}
+              CUSTOM_PLUGINS="$CUSTOM_PLUGINS\n- $plugin - $cn_desc"
+            fi
+          done
+
+          # 5. 处理空列表情况
+          if [ -z "$CUSTOM_PLUGINS" ]; then
+            CUSTOM_PLUGINS="\n- 未检测到自定义集成插件（仅包含系统核心组件）"
+          fi
+
+          # 6. 写入环境变量（供邮件/Release使用）
+          echo "PLUGINS_CONTENT=${CUSTOM_PLUGINS}" >> $GITHUB_ENV
+          echo "✅ 解析后的系统排除插件数量：${#SYSTEM_PLUGINS[@]}"
+          echo "✅ 解析后的插件中文介绍数量：${#PLUGIN_CN_MAP[@]}"
+          echo "✅ 提取的自定义集成插件：$CUSTOM_PLUGINS"
+
+      # ========== 获取固件列表（邮件/Release共用） ==========
       - name: 获取固件列表（邮件/Release共用）
         id: get_fw_list
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
@@ -209,7 +280,6 @@ jobs:
           else
             FW_LIST="\n- 未获取到固件目录"
           fi
-          # 写入环境变量（处理换行符）
           echo "FIRMWARE_LIST=${FW_LIST}" >> $GITHUB_ENV
           echo "✅ 固件列表：$FW_LIST"
 
@@ -238,11 +308,12 @@ jobs:
               ls "${{ env.FIRMWARE }}"/FanchmWrt-* 2>/dev/null | xargs -I {} echo "  - $(basename {})" >> release.txt
             fi
           fi
-          echo -e "\n### 📦 集成插件信息" >> release.txt
-          echo "${{ env.PLUGINS_CONTENT }}" | sed 's/\\n/\n/g' >> release.txt
+          # 带中文介绍的插件列表
+          echo -e "\n### 📦 自定义集成插件列表（排除系统核心组件）" >> release.txt
+          echo -e "${{ env.PLUGINS_CONTENT }}" | sed 's/\\n/\n/g' >> release.txt
           echo "status=success" >> $GITHUB_OUTPUT
 
-      # ========== 修改：编译成功邮件添加固件列表 ==========
+      # ========== 编译成功邮件：同步固件列表+带中文介绍的插件列表 ==========
       - name: 编译成功邮件通知
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
         uses: dawidd6/action-send-mail@v3
@@ -261,8 +332,9 @@ jobs:
             4. 固件管理IP：${{ env.MANAGE_IP }}
             5. 工作流ID：${{ github.run_id }}
             6. 固件文件列表：${{ env.FIRMWARE_LIST }}
-            7. Release链接：https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }}
-            8. 日志链接：https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            7. 自定义集成插件列表（排除系统组件）：${{ env.PLUGINS_CONTENT }}
+            8. Release链接：https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }}
+            9. 日志链接：https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           to: ${{ secrets.RECEIVE_EMAIL }}
           from: GitHub Actions
           secure: true
