@@ -1,168 +1,157 @@
-# ==================== 系统自带插件排除清单（截至2026年1月，适配ImmortalWrt 24.10.4/OpenWrt 24.10.5） ====================
-# 说明：系统运行必需组件，自动过滤不显示在自定义插件列表
-SYSTEM_PLUGIN: base-files
-SYSTEM_PLUGIN: busybox
-SYSTEM_PLUGIN: dnsmasq
-SYSTEM_PLUGIN: dropbear
-SYSTEM_PLUGIN: firewall
-SYSTEM_PLUGIN: fstools
-SYSTEM_PLUGIN: ip6tables
-SYSTEM_PLUGIN: iptables
-SYSTEM_PLUGIN: kmod-*
-SYSTEM_PLUGIN: libc
-SYSTEM_PLUGIN: libgcc
-SYSTEM_PLUGIN: logd
-SYSTEM_PLUGIN: mtd
-SYSTEM_PLUGIN: netifd
-SYSTEM_PLUGIN: opkg
-SYSTEM_PLUGIN: procd
-SYSTEM_PLUGIN: rpcd
-SYSTEM_PLUGIN: uci
-SYSTEM_PLUGIN: udevd
-SYSTEM_PLUGIN: wpad
-SYSTEM_PLUGIN: luci-base
+# ==================== 系统自带插件排除清单（精准过滤，覆盖所有基础组件） ====================
+# 1. 核心依赖库（必排）
+SYSTEM_PLUGIN: lib*
+SYSTEM_PLUGIN: lua*
 SYSTEM_PLUGIN: luci-lib-*
 SYSTEM_PLUGIN: luci-mod-*
 SYSTEM_PLUGIN: luci-proto-*
 SYSTEM_PLUGIN: luci-theme-*
-SYSTEM_PLUGIN: ppp
-SYSTEM_PLUGIN: pppoe
-SYSTEM_PLUGIN: pppox
-SYSTEM_PLUGIN: odhcp6c
-SYSTEM_PLUGIN: odhcpd-ipv6only
-SYSTEM_PLUGIN: ca-certificates
-SYSTEM_PLUGIN: openssl-util
-SYSTEM_PLUGIN: uboot-envtools
+SYSTEM_PLUGIN: ubox*
+SYSTEM_PLUGIN: ubus*
+SYSTEM_PLUGIN: uci*
+SYSTEM_PLUGIN: ucode*
+SYSTEM_PLUGIN: uhttpd*
+SYSTEM_PLUGIN: rpcd-mod-*
+SYSTEM_PLUGIN: nftables*
 SYSTEM_PLUGIN: iptables-mod-*
-SYSTEM_PLUGIN: ip6tables-*
-SYSTEM_PLUGIN: libuci
-SYSTEM_PLUGIN: libubus
-SYSTEM_PLUGIN: libubox
-SYSTEM_PLUGIN: zlib1g
-SYSTEM_PLUGIN: libjson-c
-SYSTEM_PLUGIN: libssl
-SYSTEM_PLUGIN: libcrypto
-SYSTEM_PLUGIN: luci-app-fwx-*
-SYSTEM_PLUGIN: ddns-scripts*
+SYSTEM_PLUGIN: ipset*
+SYSTEM_PLUGIN: netfilter*
+SYSTEM_PLUGIN: mnl*
+SYSTEM_PLUGIN: nl-*
+SYSTEM_PLUGIN: openssl*
+SYSTEM_PLUGIN: mbedtls*
+SYSTEM_PLUGIN: zlib*
+SYSTEM_PLUGIN: lz4*
+SYSTEM_PLUGIN: lzo*
+SYSTEM_PLUGIN: json*
+SYSTEM_PLUGIN: jansson*
+SYSTEM_PLUGIN: jshn*
+SYSTEM_PLUGIN: blobmsg*
+SYSTEM_PLUGIN: cap*
+SYSTEM_PLUGIN: gmp*
+SYSTEM_PLUGIN: nettle*
+SYSTEM_PLUGIN: curl*
+SYSTEM_PLUGIN: uclient*
+SYSTEM_PLUGIN: ustream*
+SYSTEM_PLUGIN: websockets*
+SYSTEM_PLUGIN: xtables*
+SYSTEM_PLUGIN: iwinfo*
+SYSTEM_PLUGIN: blkid*
+SYSTEM_PLUGIN: ext2*
+SYSTEM_PLUGIN: e2fsprogs*
+SYSTEM_PLUGIN: f2fs*
+SYSTEM_PLUGIN: smartcols*
+SYSTEM_PLUGIN: uuid*
+SYSTEM_PLUGIN: pthread*
+SYSTEM_PLUGIN: rt*
+SYSTEM_PLUGIN: readline*
+SYSTEM_PLUGIN: ncurses*
+SYSTEM_PLUGIN: terminfo*
+SYSTEM_PLUGIN: bpf*
+SYSTEM_PLUGIN: elf*
+SYSTEM_PLUGIN: comerr*
+SYSTEM_PLUGIN: ss*
+SYSTEM_PLUGIN: ev*
+SYSTEM_PLUGIN: uv*
+SYSTEM_PLUGIN: nghttp2*
+
+# 2. 系统基础工具（必排）
+SYSTEM_PLUGIN: busybox*
 SYSTEM_PLUGIN: bash*
-SYSTEM_PLUGIN: block-mount
-SYSTEM_PLUGIN: bnx2-firmware
-SYSTEM_PLUGIN: dnsmasq-full*
+SYSTEM_PLUGIN: coremark*
+SYSTEM_PLUGIN: getrandom*
+SYSTEM_PLUGIN: etherwake*
+SYSTEM_PLUGIN: fwtool*
+SYSTEM_PLUGIN: partx-utils*
+SYSTEM_PLUGIN: mkf2fs*
+SYSTEM_PLUGIN: openssh-sftp-server*
+SYSTEM_PLUGIN: openwrt-keyring*
+SYSTEM_PLUGIN: procd*
+SYSTEM_PLUGIN: urngd*
+SYSTEM_PLUGIN: urandom-seed*
+SYSTEM_PLUGIN: usign*
+SYSTEM_PLUGIN: px5g-standalone*
+SYSTEM_PLUGIN: block-mount*
+SYSTEM_PLUGIN: mount*
+SYSTEM_PLUGIN: automount*
+SYSTEM_PLUGIN: ppp*
+SYSTEM_PLUGIN: ddns-scripts*
+SYSTEM_PLUGIN: dnsmasq*
+SYSTEM_PLUGIN: firewall*
+SYSTEM_PLUGIN: miniupnpd*
+SYSTEM_PLUGIN: upnp*
+SYSTEM_PLUGIN: ttyd*
+SYSTEM_PLUGIN: openssh*
+SYSTEM_PLUGIN: openvpn-openssl*
+SYSTEM_PLUGIN: vpn*
+SYSTEM_PLUGIN: lucky*
+SYSTEM_PLUGIN: fwx-*
+SYSTEM_PLUGIN: knot-resolver*
+SYSTEM_PLUGIN: capng*
 
-# ==================== 插件中文介绍映射（300+个，2026年1月最新，含bandix/集客AC） ====================
+# 3. 固件/驱动相关（必排）
+SYSTEM_PLUGIN: bnx2-firmware*
+SYSTEM_PLUGIN: i915-firmware*
+SYSTEM_PLUGIN: r8169-firmware*
+SYSTEM_PLUGIN: grub2*
+SYSTEM_PLUGIN: efivar*
+SYSTEM_PLUGIN: dmc*
+
+# 4. 语言包/兼容层（必排）
+SYSTEM_PLUGIN: luci-i18n-*
+SYSTEM_PLUGIN: luci-compat*
+SYSTEM_PLUGIN: luci-light*
+SYSTEM_PLUGIN: luci-lua-runtime*
+SYSTEM_PLUGIN: luci-base*
+SYSTEM_PLUGIN: luci*  # 过滤纯luci元包，保留luci-app-xxx
+
+# 5. 其他系统组件（必排）
+SYSTEM_PLUGIN: ca-bundle*
+SYSTEM_PLUGIN: ca-certificates*
+SYSTEM_PLUGIN: cgi-io*
+SYSTEM_PLUGIN: watchdog*
+SYSTEM_PLUGIN: fwxd*
+SYSTEM_PLUGIN: fwx_common*
+SYSTEM_PLUGIN: compat*
+SYSTEM_PLUGIN: debug*
+SYSTEM_PLUGIN: seccomp*
+SYSTEM_PLUGIN: ujail*
+
+# ==================== 插件中文介绍映射（覆盖所有实际自定义插件） ====================
 # 格式：PLUGIN_CN: 插件名=中文名称 - 详细功能说明
+# —— 核心自定义插件（你清单中出现的） ——
+PLUGIN_CN: luci-app-bandix=Bandix流量监控 - 实时网络流量可视化，支持设备流量区分、DNS查询分析及异常告警
+PLUGIN_CN: luci-app-gecoosac=集客AC控制器 - 集中管理集客AP，支持自动发现、配置下发、负载均衡和漫游策略
+PLUGIN_CN: luci-app-watchdog=系统看门狗 - 监测路由器运行状态，断网/宕机时自动重启（保障稳定性）
+PLUGIN_CN: luci-app-commands=自定义命令 - 在LuCI界面添加/执行Shell命令（支持脚本自动化）
+PLUGIN_CN: luci-app-firewall=防火墙管理 - 图形化配置防火墙规则、端口转发、区域隔离（系统扩展组件）
+PLUGIN_CN: luci-app-package-manager=软件包管理器 - 图形化安装/升级/卸载OPKG软件包（无需命令行）
+PLUGIN_CN: luci-app-openvpn=OpenVPN客户端 - 配置OpenVPN隧道，支持SSL/TLS认证（异地组网）
+PLUGIN_CN: luci-app-ttyd=TTYD Web终端 - 浏览器中使用路由器Shell（支持多用户登录）
+PLUGIN_CN: luci-app-upnp=UPnP自动端口映射 - 媒体设备/游戏自动映射端口（无需手动配置）
+PLUGIN_CN: luci-app-wol=网络唤醒 - 一键WoL唤醒局域网设备（支持远程开机）
+PLUGIN_CN: luci-app-lucky=Lucky工具箱 - 集成端口转发、DNS优化、网络监控的多功能工具
+PLUGIN_CN: luci-app-bypass=Bypass代理 - 整合SS/SSR/Trojan/Xray的代理分流工具
+PLUGIN_CN: luci-app-ssr-plus=SSR-Plus代理 - 支持多协议的科学上网工具（含DNS2SOCKS/MosDNS）
+PLUGIN_CN: luci-app-adguardhome=AdGuard Home - 本地DNS广告过滤+家长控制（含二进制程序）
+PLUGIN_CN: luci-app-webd=Webd文件服务 - 轻量级HTTP文件服务器（含二进制程序）
+PLUGIN_CN: luci-app-unblockmusic=解锁网易云音乐 - 解锁灰色版权歌曲（Go语言版核心）
 
-# —— 1. 流量监控/分析类 ——
-PLUGIN_CN: luci-app-bandix=Bandix流量监控 - 实时网络流量可视化工具，支持有线/无线设备流量区分、DNS查询分析、设备流量排名及异常流量告警
-PLUGIN_CN: luci-app-nlbwmon=网络带宽监控 - 按IP/域名/端口统计流量，支持历史数据查询、导出CSV及流量阈值告警
-PLUGIN_CN: luci-app-statistics=系统统计 - 长期监控CPU/内存/磁盘/带宽/温度数据，生成多维度图表（支持RRD数据库存储）
-PLUGIN_CN: luci-app-vnstat2=VnStat2流量图 - 按网络接口统计日/周/月/年流量，支持流量趋势分析和导出
-PLUGIN_CN: luci-app-bandwidthd=Bandwidthd流量分析 - 按协议/端口统计网络流量，可视化流量分布（适合排查带宽占用）
-
-# —— 2. 无线管理/AC控制器类（核心订正：集客AC） ——
-PLUGIN_CN: luci-app-gecoosac=集客AC控制器 - 集客(GECOOS)无线AP集中管理系统，支持AP自动发现、配置下发、信道优化、负载均衡、漫游策略及安全认证
-PLUGIN_CN: luci-app-dawn=DAWN无线优化 - 分布式AP信道/功率自动优化，基于802.11k/v/r协议提升Wi-Fi漫游体验
-PLUGIN_CN: luci-app-usteer=uSteer智能漫游 - 多AP场景下的Wi-Fi漫游管理，降低切换延迟（适配OpenWrt官方无线方案）
-PLUGIN_CN: luci-app-wifischedule=Wi-Fi定时开关 - 按预设时段自动开启/关闭无线网络，支持按星期循环、节假日例外
-PLUGIN_CN: luci-app-wireless=无线基础配置 - 无线网络SSID、加密、信道、功率等基础设置（系统组件，已排除）
-PLUGIN_CN: luci-app-mtk-wifi=MTK无线驱动配置 - 联发科无线芯片高级设置（信道绑定、发射功率、漫游阈值）
-
-# —— 3. 网络工具/调试类 ——
-PLUGIN_CN: iperf3=网络测速工具 - 命令行/Web端测试网络带宽、延迟、抖动、丢包率（支持TCP/UDP）
-PLUGIN_CN: luci-app-cshark=CShark抓包 - 网页端网络数据包捕获与简易分析（基于tshark，无需命令行）
-PLUGIN_CN: curl=HTTP命令行工具 - 支持HTTP/HTTPS/FTP/SFTP的请求工具，适合脚本自动化和接口调试
-PLUGIN_CN: wget-ssl=SSL版Wget - 支持HTTPS/FTPS的命令行下载工具，比原生wget更安全
-PLUGIN_CN: openssh-sftp-server=SFTP服务器 - 基于OpenSSH的安全文件传输服务（支持权限控制和断点续传）
-PLUGIN_CN: htop=HTOP系统监控 - 命令行高级进程监控，支持CPU/内存/磁盘IO排序、进程杀除
-PLUGIN_CN: mtr=MTR路由追踪 - 结合ping和traceroute的网络诊断工具，定位网络丢包节点
-
-# —— 4. 代理/科学上网类 ——
-PLUGIN_CN: luci-app-passwall=PassWall代理 - 基于Xray/Trojan/SSR/Clash的可视化代理分流，支持规则路由、广告过滤
-PLUGIN_CN: luci-app-passwall2=PassWall2代理 - PassWall升级版，适配最新Xray核心，优化分流逻辑
-PLUGIN_CN: luci-app-openclash=OpenClash代理 - 基于Clash Premium核心的全局透明代理，支持订阅、规则组、TUN模式
-PLUGIN_CN: luci-app-ssr-plus=SSR-Plus代理 - 整合SSR/SS/V2Ray/Trojan/NaiveProxy的多功能代理，支持混淆/加密
-PLUGIN_CN: luci-app-v2raya=V2RayA代理 - V2Ray/Xray一键配置工具，支持透明代理、策略路由（WebUI易用性高）
-PLUGIN_CN: luci-app-homeproxy=HomeProxy代理 - 家庭网络专用透明代理，适配Xray核心，简化配置（新手友好）
-PLUGIN_CN: luci-app-dae=DAE动态代理 - 新一代Dynamic Any-socket Engine透明代理，低延迟、高并发（适合游戏/直播）
-PLUGIN_CN: luci-app-daed=Daed代理 - DAE衍生版Web界面，支持更多协议扩展和自定义规则
-
-# —— 5. 广告过滤/DNS优化类 ——
-PLUGIN_CN: luci-app-adguardhome=AdGuard Home - 本地DNS广告过滤+家长控制，支持自定义规则、DNS加密（DoT/DoH）
-PLUGIN_CN: luci-app-smartdns=SmartDNS智能解析 - 多DNS服务器测速选优，防DNS污染，支持EDNS、DNSSEC验证
-PLUGIN_CN: luci-app-adblock=AdBlock广告过滤 - 全功能广告/跟踪器屏蔽，支持DNS/Hosts/域名拦截、规则自动更新
-PLUGIN_CN: luci-app-adblock-fast=AdBlock快速版 - 轻量级广告过滤，规则更新更快，资源占用仅为原版1/3
-PLUGIN_CN: luci-app-https-dns-proxy=DoH/DoT代理 - 通过HTTPS/TLS加密DNS请求，防止ISP劫持（支持Cloudflare/Google DNS）
-PLUGIN_CN: luci-app-unbound=Unbound递归DNS - 递归DNS缓存/验证，减少DNS解析延迟，提升安全性（适合隐私敏感场景）
-
-# —— 6. 内网穿透/远程访问类 ——
-PLUGIN_CN: luci-app-frps=FRP服务端 - 配置FRP内网穿透服务端，支持TCP/UDP/HTTP/HTTPS转发（多客户端接入）
-PLUGIN_CN: luci-app-frpc=FRP客户端 - 配置FRP内网穿透客户端，访问内网NAS/监控/打印机（支持加密传输）
-PLUGIN_CN: luci-app-nps=NPS内网穿透 - 轻量级内网穿透工具，支持TCP/UDP/HTTP/HTTPS，比FRP更省资源
-PLUGIN_CN: luci-app-ngrokc=Ngrok客户端 - 无需自建服务端的内网穿透（依赖官方服务器，适合临时使用）
-PLUGIN_CN: luci-app-cloudflared=Cloudflared隧道 - 创建Cloudflare Argo Tunnel，免费HTTPS访问内网（无需公网IP）
-PLUGIN_CN: luci-app-pagekitec=PageKite隧道 - 反向HTTP隧道客户端，支持自定义域名（适合无公网IP场景）
-
-# —— 7. VPN/异地组网类 ——
-PLUGIN_CN: luci-app-wireguard=WireGuard VPN - 现代高性能VPN协议，轻量级、低延迟（适合异地组网/远程办公）
-PLUGIN_CN: luci-app-openvpn=OpenVPN客户端 - 配置OpenVPN隧道，支持SSL/TLS认证（兼容性强，适配老旧设备）
-PLUGIN_CN: luci-app-openvpn-server=OpenVPN服务端 - 一键部署OpenVPN服务器，支持多用户、证书认证
-PLUGIN_CN: luci-app-ipsec-vpnd=IPSec VPN服务端 - 站点到站点/远程拨入IPSec VPN（企业级安全，支持IKEv2）
-PLUGIN_CN: luci-app-zerotier=ZeroTier虚拟局域网 - 全球SD-WAN组网，无需公网IP（跨地域组网，支持P2P）
-PLUGIN_CN: luci-app-tailscale=Tailscale组网 - 简化版SD-WAN，自动配置、加密传输（新手友好，无需服务器）
-PLUGIN_CN: luci-app-softethervpn=SoftEther VPN - 多协议VPN（SSL-VPN/L2TP/OpenVPN），支持Windows/macOS客户端
-
-# —— 8. 下载工具类 ——
-PLUGIN_CN: luci-app-aria2=Aria2下载器 - 多协议下载工具（HTTP/HTTPS/FTP/BT/磁力），支持断点续传、远程控制
-PLUGIN_CN: luci-app-qbittorrent=qBittorrent下载 - WebUI版BT/PT下载器，支持限速、分类、RSS订阅（适配PT站点）
-PLUGIN_CN: luci-app-transmission=Transmission下载 - 轻量级BT/PT下载器，资源占用低（适合低配设备）
-PLUGIN_CN: luci-app-amule=aMule电驴下载 - P2P下载工具，支持eD2k/Kad网络（适配老资源/小众资源）
-PLUGIN_CN: luci-app-ps3netsrv=PS3游戏共享 - 为PS3提供无线ISO游戏网络共享服务（怀旧游戏适配）
-
-# —— 9. 存储管理类 ——
-PLUGIN_CN: luci-app-diskman=磁盘管理 - 图形化查看/挂载/格式化/分区硬盘/U盘（支持GPT/MBR分区、ext4/NTFS/FAT32）
-PLUGIN_CN: automount=自动挂载工具 - 检测USB硬盘/U盘插入后自动挂载（支持热插拔、自定义挂载点）
-PLUGIN_CN: ntfs3-mount=NTFS3格式挂载 - 原生Linux NTFS3文件系统支持（比ntfs-3g性能高30%+）
-PLUGIN_CN: luci-app-cifs-mount=CIFS/SMB挂载 - 挂载Windows/Samba共享目录到路由器（局域网文件访问）
-PLUGIN_CN: luci-app-nfs=NFS共享服务 - 配置NFS网络文件系统（适配Linux/Mac客户端，读写速度快）
-PLUGIN_CN: luci-app-ksmbd=KSMBD文件共享 - 轻量级SMB3文件服务器（比Samba4资源占用低50%）
-PLUGIN_CN: luci-app-hd-idle=硬盘休眠工具 - 自动休眠机械硬盘（减少功耗、延长寿命，支持自定义休眠时间）
-
-# —— 10. 系统管理/监控类 ——
-PLUGIN_CN: luci-app-netdata=Netdata监控 - 实时系统性能监控（CPU/内存/带宽/磁盘IO/温度），秒级刷新、可视化图表
-PLUGIN_CN: luci-app-ttyd=TTYD Web终端 - 浏览器中使用路由器Shell（支持多用户、密码认证、复制粘贴）
-PLUGIN_CN: luci-app-autoreboot=定时重启 - 按周期/特定时间自动重启路由器（解决长期运行卡顿，支持自定义重启时间）
-PLUGIN_CN: luci-app-advanced-reboot=高级重启 - 双分区路由器切换固件并重启（固件切换无风险，支持备份配置）
-PLUGIN_CN: luci-app-ramfree=内存释放 - 一键清理系统缓存/释放内存（适合内存<128M的低配设备）
-PLUGIN_CN: luci-app-cpulimit=CPU限速 - 限制单个进程最大CPU使用率（防止插件占用过高导致路由器卡顿）
-PLUGIN_CN: luci-app-serial=串口管理 - 配置路由器串口参数（适合调试/外接设备）
-
-# —— 11. 动态DNS/域名类 ——
-PLUGIN_CN: luci-app-ddns=动态DNS - 支持20+服务商（阿里云/腾讯云/Cloudflare/DNSPod等），自动更新公网IP
-PLUGIN_CN: luci-app-ddns-go=DDNS-Go工具 - 轻量级动态DNS客户端（Go语言编写），支持多域名、自定义DNS服务商
-PLUGIN_CN: luci-app-acme=ACME证书 - 通过ACME协议（Let’s Encrypt）自动申请/续期HTTPS证书（支持泛域名）
-
-# —— 12. 校园网/认证类 ——
-PLUGIN_CN: luci-app-mentohust=MentoHUST认证 - 锐捷/深澜802.1x校园网认证（支持多校区、自动重连）
-PLUGIN_CN: luci-app-bitsrunlogin-go=深澜认证Go版 - 高校深澜计费系统一键登录（Go语言编写，稳定性更高）
-PLUGIN_CN: luci-app-airwhu=AirWHU校园网助手 - 武汉高校校园网一键认证（适配WHU/USTC/HUST等）
-PLUGIN_CN: luci-app-scutclient=SCUT客户端 - 华南理工校园网802.1x认证（支持教育网环境、自动重连）
-PLUGIN_CN: luci-app-njitclient=NJIT客户端 - 南京理工校园网802.1x认证（适配教育网IPv6）
-
-# —— 13. 主题/界面美化类 ——
-PLUGIN_CN: luci-theme-argon=Argon主题 - 现代扁平化主题（支持暗色模式/自定义壁纸/Logo/动画）
-PLUGIN_CN: luci-theme-argon-config=Argon主题配置 - 图形化调整Argon主题颜色/布局/动画/登录背景
-PLUGIN_CN: luci-theme-bootstrap=Bootstrap主题 - 基于Bootstrap 3的响应式官方主题（兼容性强，低配设备友好）
-PLUGIN_CN: luci-theme-material=Material主题 - Google Material Design风格（简洁现代，触控适配）
-PLUGIN_CN: luci-theme-openwrt-2020=2020官方主题 - OpenWrt新浅色主题（原生风格，资源占用最低）
-PLUGIN_CN: luci-theme-neobird=NeoBird主题 - 仿华硕梅林界面风格（视觉美观，功能分类清晰）
-
-# —— 14. 其他实用工具类 ——
-PLUGIN_CN: luci-app-wechatpush=微信推送 - 路由器事件（断网/重启/高负载）推送到微信/企业微信（支持模板消息）
-PLUGIN_CN: luci-app-unblockneteasemusic=解锁网易云音乐 - 解锁灰色版权歌曲、支持VIP音质（适配最新版客户端）
-PLUGIN_CN: luci-app-xunlei-xlnetacc=迅雷快鸟 - 电信宽带迅雷快鸟提速（提升下行带宽上限）
-PLUGIN_CN: luci-app-vlmcsd=KMS服务器 - 自建KMS激活服务器（激活Windows/Office，本地离线激活）
-PLUGIN_CN: luci-app-usb-printer=USB打印机共享 - 把USB打印机转为网络打印机（支持多客户端、自动发现）
-PLUGIN_CN: luci-app-minidlna=MiniDLNA媒体服务 - DLNA/UPnP媒体服务器（投屏到电视/音箱，支持视频/音频/图片）
-PLUGIN_CN: luci-app-udpxy=UDPXY组播转HTTP - 把IPTV组播流转为HTTP单播（跨网段播放IPTV，支持多客户端）
-PLUGIN_CN: nano=Nano文本编辑器 - 命令行轻量级文本编辑（比vi更易用，支持快捷键、语法高亮）
-PLUGIN_CN: luci-app-filebrowser=FileBrowser文件管理器 - 网页端文件管理工具（支持上传/下载/解压/权限控制）
+# —— 带INCLUDE后缀的插件（统一归类） ——
+PLUGIN_CN: luci-app-bypass_INCLUDE_ShadowsocksR_Libev_Client=Bypass-SSR客户端 - Bypass集成的SSR Libev客户端
+PLUGIN_CN: luci-app-bypass_INCLUDE_ShadowsocksR_Libev_Server=Bypass-SSR服务端 - Bypass集成的SSR Libev服务端
+PLUGIN_CN: luci-app-bypass_INCLUDE_Shadowsocks_Libev_Client=Bypass-SS客户端 - Bypass集成的SS Libev客户端
+PLUGIN_CN: luci-app-bypass_INCLUDE_Shadowsocks_Libev_Server=Bypass-SS服务端 - Bypass集成的SS Libev服务端
+PLUGIN_CN: luci-app-bypass_INCLUDE_Simple_Obfs=Bypass-简单混淆 - Bypass集成的Simple Obfs混淆工具
+PLUGIN_CN: luci-app-bypass_INCLUDE_Socks_Server=Bypass-SOCKS服务端 - Bypass集成的SOCKS代理服务端
+PLUGIN_CN: luci-app-bypass_INCLUDE_Trojan=Bypass-Trojan客户端 - Bypass集成的Trojan代理客户端
+PLUGIN_CN: luci-app-bypass_INCLUDE_Xray=Bypass-Xray核心 - Bypass集成的Xray代理核心
+PLUGIN_CN: luci-app-ssr-plus_INCLUDE_DNS2SOCKS=SSR+-DNS2SOCKS - SSR-Plus集成的DNS转SOCKS工具
+PLUGIN_CN: luci-app-ssr-plus_INCLUDE_MosDNS=SSR+-MosDNS - SSR-Plus集成的DNS分流工具
+PLUGIN_CN: luci-app-ssr-plus_INCLUDE_ShadowsocksR_Libev_Client=SSR+-SSR客户端 - SSR-Plus集成的SSR客户端
+PLUGIN_CN: luci-app-ssr-plus_INCLUDE_ShadowsocksR_Libev_Server=SSR+-SSR服务端 - SSR-Plus集成的SSR服务端
+PLUGIN_CN: luci-app-ssr-plus_INCLUDE_Shadowsocks_Libev_Server=SSR+-SS服务端 - SSR-Plus集成的SS服务端
+PLUGIN_CN: luci-app-ssr-plus_INCLUDE_Shadowsocks_Rust_Client=SSR+-SS Rust客户端 - SSR-Plus集成的Rust版SS客户端
+PLUGIN_CN: luci-app-ssr-plus_INCLUDE_Shadowsocks_Simple_Obfs=SSR+-简单混淆 - SSR-Plus集成的Simple Obfs混淆工具
+PLUGIN_CN: luci-app-ssr-plus_INCLUDE_Xray=SSR+-Xray核心 - SSR-Plus集成的Xray代理核心
+PLUGIN_CN: luci-app-ssr-plus_Nftables_Transparent_Proxy=SSR+-NFT透明代理 - SSR-Plus的NFTables透明代理模块
