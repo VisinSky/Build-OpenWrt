@@ -1,0 +1,504 @@
+name: Build-FanchmWrt-X86-64
+on:
+  repository_dispatch:
+  workflow_dispatch:
+
+# 权限配置集中管理
+permissions:
+  contents: write
+  actions: write
+
+# 环境变量统一配置，增加语义化注释
+env:
+  # 源码仓库配置
+  REPO_URL: https://github.com/fanchmwrt/fanchmwrt/
+  REPO_BRANCH: fanchmwrt-24.10.4
+  
+  # 自定义文件路径
+  FEEDS_CONF: FanchmWrt/feeds.conf.default
+  CONFIG_FILE: FanchmWrt/fanchmwrtamd64.config
+  DIY_P1_SH: FanchmWrt/diy-part1.sh
+  DIY_P2_SH: FanchmWrt/diy-part2.sh
+  PLUGINS_FILE: FanchmWrt/plugins.txt
+  
+  # 上传配置开关
+  UPLOAD_BIN_DIR: false
+  UPLOAD_FIRMWARE: true
+  UPLOAD_RELEASE: true
+  
+  # 系统配置
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    # 设置shell选项，增强脚本健壮性
+    defaults:
+      run:
+        shell: bash -euo pipefail {0}
+    
+    steps:
+      - name: 1. 检出代码 (Checkout)
+        uses: actions/checkout@v4
+
+      - name: 2. 初始化编译环境 (Initialization Environment)
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          echo "📦 清理系统冗余文件，释放磁盘空间"
+          sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          
+          echo "📦 更新软件源并安装编译依赖"
+          sudo -E apt-get -qq update
+          sudo -E apt-get -qq install \
+            ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache \
+            cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib \
+            git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev \
+            libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev \
+            libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch \
+            pkgconf python2.7 python3 python3-pyelftools python3-setuptools qemu-utils rsync scons \
+            squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+          
+          echo "📦 清理apt缓存，设置时区"
+          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq clean
+          sudo timedatectl set-timezone "$TZ"
+          
+          echo "📦 创建工作目录并设置权限"
+          sudo mkdir -p /workdir
+          sudo chown $USER:$GROUPS /workdir
+
+      - name: 3. 克隆源代码 (Clone Source Code)
+        working-directory: /workdir
+        run: |
+          echo "📥 查看磁盘空间使用情况"
+          df -hT $PWD
+          
+          echo "📥 克隆FanchmWrt源码仓库"
+          git clone --depth=1 $REPO_URL -b $REPO_BRANCH fanchmwrt
+          ln -sf /workdir/fanchmwrt $GITHUB_WORKSPACE/fanchmwrt
+          echo "✅ 源码克隆完成，工作目录：/workdir/fanchmwrt"
+
+      - name: 4. 加载自定义订阅源 (Load Custom Feeds)
+        run: |
+          echo "🔧 加载自定义feeds配置文件"
+          [ -e "$FEEDS_CONF" ] && mv "$FEEDS_CONF" fanchmwrt/feeds.conf.default && echo "✅ 已替换feeds.conf.default"
+          
+          echo "🔧 执行自定义脚本diy-part1.sh"
+          chmod +x "$DIY_P1_SH"
+          cd fanchmwrt
+          $GITHUB_WORKSPACE/$DIY_P1_SH
+          echo "✅ diy-part1.sh 执行完成"
+
+      - name: 5. 更新并安装软件源 (Update & Install Feeds)
+        run: |
+          echo "🔄 更新软件源"
+          cd fanchmwrt && ./scripts/feeds update -a
+          
+          echo "🔄 安装软件源"
+          cd fanchmwrt && ./scripts/feeds install -a
+          echo "✅ 软件源更新安装完成"
+
+      - name: 6. 加载自定义配置 (Load Custom Configuration)
+        run: |
+          echo "🔧 复制自定义files目录"
+          [ -e "FanchmWrt/files" ] && mv FanchmWrt/files fanchmwrt/files && echo "✅ 已复制自定义files目录"
+          
+          echo "🔧 复制自定义配置文件"
+          [ -e "$CONFIG_FILE" ] && mv "$CONFIG_FILE" fanchmwrt/.config && echo "✅ 已替换.config配置文件"
+          
+          echo "🔧 执行自定义脚本diy-part2.sh"
+          chmod +x "$DIY_P2_SH"
+          cd fanchmwrt
+          $GITHUB_WORKSPACE/$DIY_P2_SH
+          echo "✅ diy-part2.sh 执行完成"
+
+      - name: 7. 提取固件默认管理IP (Extract Management IP)
+        id: extract_ip
+        run: |
+          cd fanchmwrt
+          MANAGE_IP=""
+          CONFIG_GENERATE="package/base-files/files/bin/config_generate"
+          
+          echo "🔍 从config_generate提取管理IP"
+          if [ -f "$CONFIG_GENERATE" ]; then
+            MANAGE_IP=$(grep -oP '192\.168\.\d+\.\d+' "$CONFIG_GENERATE" | head -1)
+            echo "ℹ️ 从config_generate提取到IP: $MANAGE_IP"
+          fi
+          
+          echo "🔍 从network配置文件提取管理IP（备用）"
+          if [ -z "$MANAGE_IP" ] && [ -f "files/etc/config/network" ]; then
+            MANAGE_IP=$(grep -A 10 'config interface 'lan'' "files/etc/config/network" | grep 'option ipaddr' | sed -r 's/.*ipaddr[[:space:]]*"(.*)"/\1/' | head -1)
+            echo "ℹ️ 从network配置提取到IP: $MANAGE_IP"
+          fi
+          
+          # 兜底默认值
+          MANAGE_IP=${MANAGE_IP:-"192.168.1.1"}
+          echo "MANAGE_IP=$MANAGE_IP" >> "$GITHUB_ENV"
+          echo "✅ 最终管理IP：$MANAGE_IP"
+
+      - name: 8. 生成编译相关变量 (Generate Compilation Variables)
+        id: gen_vars
+        run: |
+          echo "📅 生成编译时间和Release标签"
+          COMPILE_TIME=$(date +"%Y-%m-%d %H:%M:%S")
+          RELEASE_TAG=$(date +"%Y.%m.%d-%H%M")
+          
+          echo "COMPILE_TIME=$COMPILE_TIME" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
+          echo "✅ 编译时间：$COMPILE_TIME"
+          echo "✅ Release标签：$RELEASE_TAG"
+
+      - name: 9. 下载软件包 (Download Packages)
+        id: package
+        run: |
+          cd fanchmwrt
+          echo "🔧 生成默认配置文件"
+          make defconfig
+          
+          echo "📥 并行下载软件包（8线程）"
+          make download -j8
+          
+          echo "🧹 清理无效下载文件（小于1KB）"
+          find dl -size -1024c -exec ls -l {} \;
+          find dl -size -1024c -exec rm -f {} \;
+          echo "✅ 软件包下载完成"
+
+      - name: 10. 记录编译开始时间 (Record Compile Start Time)
+        id: start_compile
+        run: |
+          COMPILE_START=$(date +%s)
+          echo "COMPILE_START=$COMPILE_START" >> "$GITHUB_ENV"
+          echo "✅ 编译开始时间戳：$COMPILE_START"
+
+      - name: 11. 编译固件 (Compile Firmware)
+        id: compile
+        run: |
+          cd fanchmwrt
+          THREAD_COUNT=$(nproc)
+          echo "🔨 开始编译固件，使用 $THREAD_COUNT 线程"
+          
+          # 尝试多线程编译，失败则降级单线程
+          make -j"$THREAD_COUNT" || make -j1 || make -j1 V=s
+          echo "status=success" >> "$GITHUB_OUTPUT"
+          
+          # 提取设备信息
+          echo "🔍 提取设备信息"
+          DEVICE=$(grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/')
+          ARCH=$(grep '^CONFIG_TARGET_ARCH_PACKAGES=' .config | sed -r 's/.*="(.*)"/\1/')
+          FULL_DEVICE_NAME="${DEVICE} ${ARCH}"
+          
+          # 设置环境变量
+          [ -n "$DEVICE" ] && echo "DEVICE_NAME=_$DEVICE" >> "$GITHUB_ENV"
+          echo "FULL_DEVICE_NAME=$FULL_DEVICE_NAME" >> "$GITHUB_ENV"
+          echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> "$GITHUB_ENV"
+          
+          echo "✅ 固件编译完成"
+          echo "ℹ️ 设备信息：$FULL_DEVICE_NAME"
+
+      - name: 12. 计算编译时长 (Calculate Compile Duration)
+        id: calc_duration
+        if: steps.compile.outputs.status == 'success' && !cancelled()
+        run: |
+          echo "⏱️ 计算编译耗时"
+          COMPILE_END=$(date +%s)
+          DURATION_SEC=$((COMPILE_END - COMPILE_START))
+          
+          # 转换为时分秒格式
+          HOURS=$((DURATION_SEC / 3600))
+          MINUTES=$(((DURATION_SEC % 3600) / 60))
+          SECONDS=$((DURATION_SEC % 60))
+          COMPILE_DURATION=$(printf "%02d:%02d:%02d" "$HOURS" "$MINUTES" "$SECONDS")
+          
+          echo "COMPILE_DURATION=$COMPILE_DURATION" >> "$GITHUB_ENV"
+          echo "✅ 编译总耗时：$COMPILE_DURATION（H:M:S）"
+
+      - name: 13. 检查磁盘空间使用情况 (Check Disk Usage)
+        run: |
+          echo "💾 磁盘空间使用情况"
+          df -hT
+
+      - name: 14. 上传Bin目录 (Upload Bin Directory)
+        uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true' && !cancelled()
+        with:
+          name: fanchmwrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: fanchmwrt/bin
+
+      - name: 15. 整理固件文件 (Organize Firmware Files)
+        id: organize
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+        run: |
+          echo "📁 整理固件文件"
+          FIRMWARE_DIR=$(find fanchmwrt/bin/targets/*/* -type d | head -1)
+          cd "$FIRMWARE_DIR"
+          rm -rf packages
+          
+          echo "FIRMWARE=$PWD" >> "$GITHUB_ENV"
+          echo "status=success" >> "$GITHUB_OUTPUT"
+          echo "✅ 固件文件整理完成，目录：$PWD"
+
+      - name: 16. 上传固件目录 (Upload Firmware Directory)
+        uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success' && steps.organize.outputs.status == 'success' && !cancelled()
+        with:
+          name: FanchmWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: ${{ env.FIRMWARE }}
+
+      - name: 17. 重命名固件文件 (Rename Firmware Files)
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
+        run: |
+          echo "🔤 重命名固件文件（openwrt->FanchmWrt）"
+          find "${{ env.FIRMWARE }}" -name "openwrt-*.img.gz" -print0 | while IFS= read -r -d '' file; do
+            if [ -f "$file" ]; then
+              new_file="${file/openwrt-/FanchmWrt-}"
+              mv "$file" "$new_file"
+              echo "✅ 重命名成功：$(basename "$new_file")"
+            else
+              echo "⚠️ 文件不存在，跳过：$file"
+            fi
+          done
+
+      - name: 18. 提取集成插件列表 (Extract Plugins List)
+        id: plugins
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
+        run: |
+          cd fanchmwrt
+          
+          # 1. 定义默认系统插件和插件中文映射
+          echo "🔧 初始化默认系统插件列表"
+          DEFAULT_SYSTEM_PLUGINS=(
+            "base-files" "busybox" "dnsmasq" "dropbear" "firewall" "fstools"
+            "ip6tables" "iptables" "kmod-*" "libc" "libgcc" "logd" "mtd" "netifd"
+            "opkg" "procd" "rpcd" "uci" "udevd" "wpad" "luci-base" "luci-lib-*"
+            "luci-mod-*" "luci-proto-*" "luci-theme-*" "ppp" "pppoe" "pppox" "odhcp6c"
+            "odhcpd-ipv6only" "ca-certificates" "openssl-util"
+            "fwx-*" "luci-app-fwx-*"
+          )
+          
+          declare -A DEFAULT_PLUGIN_CN_MAP=(
+            ["luci-app-passwall"]="PassWall - 科学上网工具（支持多种协议）"
+            ["luci-app-openclash"]="OpenClash - 科学上网工具（Clash核心）"
+            ["luci-app-ssr-plus"]="SSR-Plus - 科学上网工具（SSR/SS/V2Ray等）"
+            ["bandix"]="Bandix流量监控 - 轻量级实时网络流量可视化工具"
+            ["luci-app-bandix"]="Bandix流量监控(Web界面) - 图形化管理流量数据"
+            ["luci-app-watchdog"]="看门狗管理 - 监测路由器状态并自动重启"
+          )
+
+          # 2. 读取plugins.txt配置
+          SYSTEM_PLUGINS=()
+          declare -A PLUGIN_CN_MAP=()
+          
+          if [ -f "${{ env.PLUGINS_FILE }}" ]; then
+            echo "📄 解析plugins.txt配置文件"
+            while IFS= read -r line; do
+              # 跳过注释和空行
+              [[ $line =~ ^# || -z $line ]] && continue
+              
+              # 解析系统排除插件
+              if [[ $line =~ ^SYSTEM_PLUGIN:[[:space:]]*(.*) ]]; then
+                sys_plugin=${BASH_REMATCH[1]}
+                [ -n "$sys_plugin" ] && SYSTEM_PLUGINS+=("$sys_plugin")
+              fi
+              
+              # 解析插件中文说明
+              if [[ $line =~ ^PLUGIN_CN:[[:space:]]*(.*)=(.*) ]]; then
+                plugin=${BASH_REMATCH[1]}
+                desc=${BASH_REMATCH[2]}
+                [ -n "$plugin" ] && PLUGIN_CN_MAP["$plugin"]="$desc"
+              fi
+            done < "${{ env.PLUGINS_FILE }}"
+          else
+            echo "⚠️ 未找到plugins.txt，使用默认配置"
+            SYSTEM_PLUGINS=("${DEFAULT_SYSTEM_PLUGINS[@]}")
+            PLUGIN_CN_MAP=("${DEFAULT_PLUGIN_CN_MAP[@]}")
+          fi
+
+          # 3. 提取并过滤插件列表
+          echo "🔍 提取已编译插件列表"
+          ALL_PLUGINS=$(grep -E '^CONFIG_PACKAGE_.+=y' .config | sed -r 's/CONFIG_PACKAGE_(.+)=y/\1/' | grep -v '^[0-9]*$' | sort)
+          
+          CUSTOM_PLUGINS=""
+          for plugin in $ALL_PLUGINS; do
+            # 跳过短名称系统组件
+            [ ${#plugin} -lt 3 ] && continue
+            
+            # 判断是否为系统插件
+            is_system=0
+            for sys_plugin in "${SYSTEM_PLUGINS[@]}"; do
+              if [[ $sys_plugin == *"*"* ]]; then
+                pattern=${sys_plugin//\*/.*}
+                [[ $plugin =~ ^$pattern$ ]] && is_system=1 && break
+              else
+                [[ $plugin == "$sys_plugin" || $plugin == "$sys_plugin"-* ]] && is_system=1 && break
+              fi
+            done
+            
+            # 处理自定义插件
+            if [ $is_system -eq 0 ]; then
+              cn_desc=${PLUGIN_CN_MAP[$plugin]}
+              
+              # 模糊匹配带INCLUDE的插件
+              if [ -z "$cn_desc" ]; then
+                for key in "${!PLUGIN_CN_MAP[@]}"; do
+                  [[ $plugin == "$key"* ]] && cn_desc=${PLUGIN_CN_MAP[$key]} && break
+                done
+              fi
+              
+              # 兜底描述
+              cn_desc=${cn_desc:-"${plugin}（自定义插件）"}
+              CUSTOM_PLUGINS="$CUSTOM_PLUGINS\n- $plugin - $cn_desc"
+            fi
+          done
+
+          # 4. 处理空插件列表
+          if [ -z "$CUSTOM_PLUGINS" ]; then
+            CUSTOM_PLUGINS="\n- 未检测到自定义集成插件（仅包含系统核心组件）"
+          fi
+
+          # 5. 保存到环境变量
+          echo "PLUGINS_CONTENT=${CUSTOM_PLUGINS}" >> "$GITHUB_ENV"
+          echo "✅ 系统排除插件数量：${#SYSTEM_PLUGINS[@]}"
+          echo "✅ 插件中文说明数量：${#PLUGIN_CN_MAP[@]}"
+          echo "✅ 自定义插件列表：$CUSTOM_PLUGINS"
+
+      - name: 19. 获取固件列表 (Get Firmware List)
+        id: get_fw_list
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
+        run: |
+          echo "📋 生成固件文件列表"
+          FW_LIST=""
+          
+          if [ -d "${{ env.FIRMWARE }}" ]; then
+            FW_FILES=$(ls "${{ env.FIRMWARE }}"/FanchmWrt-*.img.gz 2>/dev/null)
+            if [ -n "$FW_FILES" ]; then
+              for fw in $FW_FILES; do
+                FW_LIST="$FW_LIST\n- $(basename "$fw")"
+              done
+            else
+              FW_LIST="\n- 已编译固件：\n"
+              ls "${{ env.FIRMWARE }}"/FanchmWrt-* 2>/dev/null | while read line; do
+                FW_LIST="$FW_LIST  - $(basename "$line")"
+              done
+            fi
+          else
+            FW_LIST="\n- 未获取到固件目录"
+          fi
+          
+          echo "FIRMWARE_LIST=${FW_LIST}" >> "$GITHUB_ENV"
+          echo "✅ 固件列表：$FW_LIST"
+
+      - name: 20. 生成Release说明 (Generate Release Notes)
+        id: tag
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
+        run: |
+          echo "release_tag=${{ env.RELEASE_TAG }}" >> "$GITHUB_OUTPUT"
+          
+          # 生成Release说明文件
+          echo "📝 生成Release说明文件"
+          cat > release.txt << EOF
+## FanchmWrt 固件编译自动发布
+- 编译时间：${{ env.COMPILE_TIME }}
+- 编译时长：${{ env.COMPILE_DURATION }}（小时:分钟:秒）
+- 设备型号：${{ env.FULL_DEVICE_NAME }}
+
+### 🔐 默认登录信息
+- 管理IP：${{ env.MANAGE_IP }}（来自config_generate修改）
+- 登录账号：root
+- 登录密码：password
+
+### 📁 固件文件列表
+EOF
+          
+          # 添加固件列表
+          if [ -d "${{ env.FIRMWARE }}" ]; then
+            FW_FILES=$(ls "${{ env.FIRMWARE }}"/FanchmWrt-*.img.gz 2>/dev/null)
+            if [ -n "$FW_FILES" ]; then
+              for fw in $FW_FILES; do
+                echo "- $(basename "$fw")" >> release.txt
+              done
+            else
+              echo "- 已编译固件：" >> release.txt
+              ls "${{ env.FIRMWARE }}"/FanchmWrt-* 2>/dev/null | xargs -I {} echo "  - $(basename {})" >> release.txt
+            fi
+          fi
+          
+          # 添加插件列表
+          echo -e "\n### 📦 自定义集成插件列表（排除系统核心组件）" >> release.txt
+          echo -e "${{ env.PLUGINS_CONTENT }}" | sed 's/\\n/\n/g' >> release.txt
+          
+          echo "status=success" >> "$GITHUB_OUTPUT"
+          echo "✅ Release说明文件生成完成"
+
+      - name: 21. 编译成功邮件通知 (Send Success Email)
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.qq.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USER }}
+          password: ${{ secrets.EMAIL_PASS }}
+          subject: FanchmWrt固件编译成功通知
+          body: |
+            您好，FanchmWrt固件编译已成功完成！
+            关键信息如下：
+            1. 编译时间：${{ env.COMPILE_TIME }}
+            2. 编译时长：${{ env.COMPILE_DURATION }}（小时:分钟:秒）
+            3. 设备型号：${{ env.FULL_DEVICE_NAME }}
+            4. 固件管理IP：${{ env.MANAGE_IP }}
+            5. 工作流ID：${{ github.run_id }}
+            6. 固件文件列表：${{ env.FIRMWARE_LIST }}
+            7. 自定义集成插件列表（排除系统组件）：${{ env.PLUGINS_CONTENT }}
+            8. Release链接：https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }}
+            9. 日志链接：https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.RECEIVE_EMAIL }}
+          from: GitHub Actions
+          secure: true
+
+      - name: 22. 编译失败邮件通知 (Send Failure Email)
+        if: failure() && steps.compile.conclusion == 'failure'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.qq.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USER }}
+          password: ${{ secrets.EMAIL_PASS }}
+          subject: FanchmWrt固件编译失败通知
+          body: |
+            您好，FanchmWrt固件编译工作流运行失败！
+            仓库地址：${{ github.repository }}
+            工作流运行ID：${{ github.run_id }}
+            日志链接：https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.RECEIVE_EMAIL }}
+          from: GitHub Actions
+          secure: true
+
+      - name: 23. 上传固件到Release (Upload to GitHub Release)
+        uses: softprops/action-gh-release@v1
+        if: steps.compile.outputs.status == 'success' && steps.tag.outputs.status == 'success' && !cancelled()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          body_path: release.txt
+          files: |
+            ${{ env.FIRMWARE }}/FanchmWrt-*.img.gz
+            ${{ env.FIRMWARE }}/sha256sums
+          overwrite: true
+
+      - name: 24. 删除旧工作流记录 (Delete Old Workflow Runs)
+        uses: Mattraks/delete-workflow-runs@v2
+        if: steps.compile.outputs.status == 'success' && !cancelled()
+        with:
+          retain_days: 0
+          keep_minimum_runs: 2
+
+      - name: 25. 删除旧Release版本 (Delete Old Releases)
+        uses: dev-drprasad/delete-older-releases@v0.3.0
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
+        with:
+          keep_latest: 3
+          delete_tags: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
