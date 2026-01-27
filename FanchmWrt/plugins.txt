@@ -1,10 +1,9 @@
 # ==============================================================================
-# OpenWrt/ImmortalWrt 插件过滤&中文介绍配置文件（2026完整版）
-# 适配：FanchmWrt 编译脚本，精准过滤系统组件，全插件中文覆盖
+# FanchmWrt 插件过滤&中文介绍配置文件（适配X86-64编译，FWX系列为系统组件）
 # ==============================================================================
 
 # ------------------------------ 系统核心组件排除清单 ------------------------------
-# 1. 基础依赖库（通配符全覆盖，杜绝系统库混入）
+# 1. 基础依赖库
 SYSTEM_PLUGIN: lib*
 SYSTEM_PLUGIN: lua*
 SYSTEM_PLUGIN: luci-lib-*
@@ -67,7 +66,7 @@ SYSTEM_PLUGIN: noid*
 SYSTEM_PLUGIN: auth*
 SYSTEM_PLUGIN: fwx_common*
 
-# 2. 系统基础工具（全量覆盖）
+# 2. 系统基础工具
 SYSTEM_PLUGIN: busybox*
 SYSTEM_PLUGIN: bash*
 SYSTEM_PLUGIN: coremark*
@@ -97,7 +96,7 @@ SYSTEM_PLUGIN: openssh*
 SYSTEM_PLUGIN: openvpn-openssl*
 SYSTEM_PLUGIN: vpn*
 SYSTEM_PLUGIN: lucky*
-SYSTEM_PLUGIN: fwx-*  # 新增：飞熊WiFi FWX系列全量排除
+SYSTEM_PLUGIN: fwx-*          # FWX系列全量排除
 SYSTEM_PLUGIN: knot-resolver*
 SYSTEM_PLUGIN: capng*
 SYSTEM_PLUGIN: watchdog*
@@ -120,14 +119,14 @@ SYSTEM_PLUGIN: grub2-efi*
 SYSTEM_PLUGIN: efivar*
 SYSTEM_PLUGIN: dmc*
 
-# 4. 语言包/兼容层
+# 4. 语言包/兼容层 + FWX插件
 SYSTEM_PLUGIN: luci-i18n-*
 SYSTEM_PLUGIN: luci-compat*
 SYSTEM_PLUGIN: luci-light*
 SYSTEM_PLUGIN: luci-lua-runtime*
 SYSTEM_PLUGIN: luci-base*
-SYSTEM_PLUGIN: luci*  # 过滤纯luci元包，仅保留luci-app-xxx
-SYSTEM_PLUGIN: luci-app-fwx-*  # 新增：飞熊WiFi FWX系列插件全量排除
+SYSTEM_PLUGIN: luci*          # 过滤纯luci元包
+SYSTEM_PLUGIN: luci-app-fwx-* # FWX系列插件全量排除
 
 # ------------------------------ 自定义插件中文介绍映射 ------------------------------
 # 流量监控类
@@ -135,53 +134,53 @@ PLUGIN_CN: bandix=Bandix流量监控 - 轻量级实时网络流量可视化工�
 PLUGIN_CN: luci-app-bandix=Bandix流量监控(Web界面) - Bandix流量监控的LuCI图形化管理界面，支持数据导出、阈值设置
 
 # 无线管理类
-PLUGIN_CN: luci-app-gecoosac=集客AC控制器 - 集客(GECOOS)无线AP集中管理系统，支持AP自动发现、配置下发、信道优化、负载均衡、漫游策略及802.1X认证
+PLUGIN_CN: luci-app-gecoosac=集客AC控制器 - 集客(GECOOS)无线AP集中管理系统，支持AP自动发现、配置下发、信道优化、负载均衡
 
 # 系统监控/维护类
-PLUGIN_CN: watchdog=系统看门狗 - 硬件级系统监控工具，检测到路由器宕机/断网时自动重启，保障设备可用性
-PLUGIN_CN: luci-app-watchdog=看门狗管理(Web界面) - 系统看门狗的LuCI配置界面，支持自定义监控阈值、重启触发条件
-PLUGIN_CN: luci-app-commands=自定义命令 - 在LuCI界面添加/执行自定义Shell命令，支持一键运行脚本、批量操作
-PLUGIN_CN: luci-app-firewall=防火墙管理 - OpenWrt防火墙图形化配置界面，支持端口转发、区域隔离、自定义规则
-PLUGIN_CN: luci-app-ttyd=TTYD Web终端 - 浏览器中运行的路由器Shell终端，支持多用户登录、密码认证、复制粘贴
-PLUGIN_CN: luci-app-wol=网络唤醒 - 远程唤醒局域网设备的LuCI工具，支持MAC地址保存、批量唤醒、广域网唤醒
-PLUGIN_CN: luci-app-upnp=UPnP自动端口映射 - 自动管理局域网设备UPnP端口映射请求，支持端口范围限制、设备白名单
+PLUGIN_CN: watchdog=系统看门狗 - 硬件级系统监控工具，检测到路由器宕机/断网时自动重启
+PLUGIN_CN: luci-app-watchdog=看门狗管理(Web界面) - 系统看门狗的LuCI配置界面，支持自定义监控阈值
+PLUGIN_CN: luci-app-commands=自定义命令 - 在LuCI界面添加/执行自定义Shell命令，支持一键运行脚本
+PLUGIN_CN: luci-app-firewall=防火墙管理 - OpenWrt防火墙图形化配置界面，支持端口转发、区域隔离
+PLUGIN_CN: luci-app-ttyd=TTYD Web终端 - 浏览器中运行的路由器Shell终端，支持多用户登录、密码认证
+PLUGIN_CN: luci-app-wol=网络唤醒 - 远程唤醒局域网设备的LuCI工具，支持MAC地址保存、批量唤醒
+PLUGIN_CN: luci-app-upnp=UPnP自动端口映射 - 自动管理局域网设备UPnP端口映射请求，支持端口范围限制
 
 # 软件包管理类
-PLUGIN_CN: luci-app-package-manager=软件包管理器 - 图形化OPKG软件包管理工具，支持安装/卸载/升级、依赖检查、源管理
+PLUGIN_CN: luci-app-package-manager=软件包管理器 - 图形化OPKG软件包管理工具，支持安装/卸载/升级、依赖检查
 
 # VPN/代理类（Bypass系列）
 PLUGIN_CN: luci-app-bypass=Bypass代理 - 整合SS/SSR/Trojan/Xray的多功能代理分流工具，支持规则路由、广告过滤
-PLUGIN_CN: luci-app-bypass_INCLUDE_ShadowsocksR_Libev_Client=Bypass-SSR客户端 - Bypass集成的ShadowsocksR Libev版客户端（支持混淆/加密）
-PLUGIN_CN: luci-app-bypass_INCLUDE_ShadowsocksR_Libev_Server=Bypass-SSR服务端 - Bypass集成的ShadowsocksR Libev版服务端（支持多用户）
-PLUGIN_CN: luci-app-bypass_INCLUDE_Shadowsocks_Libev_Client=Bypass-SS客户端 - Bypass集成的Shadowsocks Libev版客户端（轻量级）
-PLUGIN_CN: luci-app-bypass_INCLUDE_Shadowsocks_Libev_Server=Bypass-SS服务端 - Bypass集成的Shadowsocks Libev版服务端（低资源占用）
-PLUGIN_CN: luci-app-bypass_INCLUDE_Simple_Obfs=Bypass-简单混淆 - Bypass集成的Simple Obfs混淆工具（突破端口封锁）
-PLUGIN_CN: luci-app-bypass_INCLUDE_Socks_Server=Bypass-SOCKS服务端 - Bypass集成的SOCKS5代理服务端（适配多客户端）
-PLUGIN_CN: luci-app-bypass_INCLUDE_Trojan=Bypass-Trojan客户端 - Bypass集成的Trojan代理客户端（伪装HTTPS流量）
-PLUGIN_CN: luci-app-bypass_INCLUDE_Xray=Bypass-Xray核心 - Bypass集成的Xray代理核心（支持VLESS/XTLS等新协议）
+PLUGIN_CN: luci-app-bypass_INCLUDE_ShadowsocksR_Libev_Client=Bypass-SSR客户端 - Bypass集成的SSR Libev客户端
+PLUGIN_CN: luci-app-bypass_INCLUDE_ShadowsocksR_Libev_Server=Bypass-SSR服务端 - Bypass集成的SSR Libev服务端
+PLUGIN_CN: luci-app-bypass_INCLUDE_Shadowsocks_Libev_Client=Bypass-SS客户端 - Bypass集成的SS Libev客户端
+PLUGIN_CN: luci-app-bypass_INCLUDE_Shadowsocks_Libev_Server=Bypass-SS服务端 - Bypass集成的SS Libev服务端
+PLUGIN_CN: luci-app-bypass_INCLUDE_Simple_Obfs=Bypass-简单混淆 - Bypass集成的Simple Obfs混淆工具
+PLUGIN_CN: luci-app-bypass_INCLUDE_Socks_Server=Bypass-SOCKS服务端 - Bypass集成的SOCKS5代理服务端
+PLUGIN_CN: luci-app-bypass_INCLUDE_Trojan=Bypass-Trojan客户端 - Bypass集成的Trojan代理客户端
+PLUGIN_CN: luci-app-bypass_INCLUDE_Xray=Bypass-Xray核心 - Bypass集成的Xray代理核心（支持VLESS/XTLS）
 
 # VPN/代理类（SSR-Plus系列）
 PLUGIN_CN: luci-app-ssr-plus=SSR-Plus代理 - 整合SSR/SS/V2Ray/Trojan的多功能代理工具，支持透明代理、规则分流
 PLUGIN_CN: luci-app-ssr-plus_INCLUDE_DNS2SOCKS=SSR+-DNS2SOCKS - SSR-Plus集成的DNS转SOCKS工具（防止DNS污染）
-PLUGIN_CN: luci-app-ssr-plus_INCLUDE_MosDNS=SSR+-MosDNS - SSR-Plus集成的MosDNS工具（DNS分流/缓存/防污染）
-PLUGIN_CN: luci-app-ssr-plus_INCLUDE_ShadowsocksR_Libev_Client=SSR+-SSR客户端 - SSR-Plus集成的ShadowsocksR Libev客户端
-PLUGIN_CN: luci-app-ssr-plus_INCLUDE_ShadowsocksR_Libev_Server=SSR+-SSR服务端 - SSR-Plus集成的ShadowsocksR Libev服务端
-PLUGIN_CN: luci-app-ssr-plus_INCLUDE_Shadowsocks_Libev_Server=SSR+-SS服务端 - SSR-Plus集成的Shadowsocks Libev服务端
-PLUGIN_CN: luci-app-ssr-plus_INCLUDE_Shadowsocks_Rust_Client=SSR+-SS Rust客户端 - SSR-Plus集成的Rust版Shadowsocks客户端（高性能）
+PLUGIN_CN: luci-app-ssr-plus_INCLUDE_MosDNS=SSR+-MosDNS - SSR-Plus集成的MosDNS工具（DNS分流/缓存）
+PLUGIN_CN: luci-app-ssr-plus_INCLUDE_ShadowsocksR_Libev_Client=SSR+-SSR客户端 - SSR-Plus集成的SSR Libev客户端
+PLUGIN_CN: luci-app-ssr-plus_INCLUDE_ShadowsocksR_Libev_Server=SSR+-SSR服务端 - SSR-Plus集成的SSR Libev服务端
+PLUGIN_CN: luci-app-ssr-plus_INCLUDE_Shadowsocks_Libev_Server=SSR+-SS服务端 - SSR-Plus集成的SS Libev服务端
+PLUGIN_CN: luci-app-ssr-plus_INCLUDE_Shadowsocks_Rust_Client=SSR+-SS Rust客户端 - SSR-Plus集成的Rust版SS客户端
 PLUGIN_CN: luci-app-ssr-plus_INCLUDE_Shadowsocks_Simple_Obfs=SSR+-简单混淆 - SSR-Plus集成的Simple Obfs混淆工具
-PLUGIN_CN: luci-app-ssr-plus_INCLUDE_Xray=SSR+-Xray核心 - SSR-Plus集成的Xray代理核心（支持最新协议）
-PLUGIN_CN: luci-app-ssr-plus_Nftables_Transparent_Proxy=SSR+-NFT透明代理 - SSR-Plus基于NFTables的透明代理模块（比iptables更高效）
+PLUGIN_CN: luci-app-ssr-plus_INCLUDE_Xray=SSR+-Xray核心 - SSR-Plus集成的Xray代理核心
+PLUGIN_CN: luci-app-ssr-plus_Nftables_Transparent_Proxy=SSR+-NFT透明代理 - SSR-Plus基于NFTables的透明代理模块
 
 # VPN/代理类（OpenVPN系列）
-PLUGIN_CN: luci-app-openvpn=OpenVPN客户端 - OpenVPN隧道图形化配置工具，支持SSL/TLS认证、证书导入、自动重连
-PLUGIN_CN: openvpn-openssl=OpenVPN核心(OpenSSL版) - OpenVPN的OpenSSL加密版本核心组件，提供VPN隧道基础功能
+PLUGIN_CN: luci-app-openvpn=OpenVPN客户端 - OpenVPN隧道图形化配置工具，支持SSL/TLS认证、证书导入
+PLUGIN_CN: openvpn-openssl=OpenVPN核心(OpenSSL版) - OpenVPN的OpenSSL加密版本核心组件
 
 # 其他实用插件
-PLUGIN_CN: luci-app-lucky=Lucky工具箱 - 集成动态DNS、端口转发、网络监控、SSL证书管理的多功能工具（新手友好）
-PLUGIN_CN: lucky=Lucky核心 - Lucky工具箱的后台核心组件，处理DNS解析、端口映射等核心逻辑
-PLUGIN_CN: luci-app-adguardhome=AdGuard Home - 本地DNS广告过滤工具，支持自定义规则、家长控制、DNS加密（DoT/DoH）
-PLUGIN_CN: luci-app-adguardhome_INCLUDE_binary=AdGuard Home二进制核心 - AdGuard Home的可执行程序核心（无需手动下载）
-PLUGIN_CN: luci-app-unblockmusic=解锁网易云音乐 - 解锁网易云音乐灰色版权歌曲，支持VIP音质、歌词同步
+PLUGIN_CN: luci-app-lucky=Lucky工具箱 - 集成动态DNS、端口转发、网络监控、SSL证书管理的多功能工具
+PLUGIN_CN: lucky=Lucky核心 - Lucky工具箱的后台核心组件，处理DNS解析、端口映射等逻辑
+PLUGIN_CN: luci-app-adguardhome=AdGuard Home - 本地DNS广告过滤工具，支持自定义规则、家长控制、DNS加密
+PLUGIN_CN: luci-app-adguardhome_INCLUDE_binary=AdGuard Home二进制核心 - AdGuard Home的可执行程序核心
+PLUGIN_CN: luci-app-unblockmusic=解锁网易云音乐 - 解锁网易云音乐灰色版权歌曲，支持VIP音质
 PLUGIN_CN: luci-app-unblockmusic_INCLUDE_UnblockNeteaseMusic_Go=解锁网易云音乐(Go版) - 基于Go语言的解锁核心（稳定性更高）
 PLUGIN_CN: luci-app-webd=Webd文件服务 - 轻量级HTTP文件服务器，支持文件上传/下载/解压、权限控制
-PLUGIN_CN: luci-app-webd_INCLUDE_WEBD_BINARY=Webd二进制核心 - Webd文件服务的可执行程序核心（无需额外安装）
+PLUGIN_CN: luci-app-webd_INCLUDE_WEBD_BINARY=Webd二进制核心 - Webd文件服务的可执行程序核心
