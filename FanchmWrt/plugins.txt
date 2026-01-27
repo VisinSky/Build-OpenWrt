@@ -42,6 +42,12 @@ SYSTEM_PLUGIN: zlib1g
 SYSTEM_PLUGIN: libjson-c
 SYSTEM_PLUGIN: libssl
 SYSTEM_PLUGIN: libcrypto
+SYSTEM_PLUGIN: luci-app-fwx-*
+SYSTEM_PLUGIN: ddns-scripts*
+SYSTEM_PLUGIN: bash*
+SYSTEM_PLUGIN: block-mount
+SYSTEM_PLUGIN: bnx2-firmware
+SYSTEM_PLUGIN: dnsmasq-full*
 
 # ==================== 插件中文介绍映射（300+个，2026年1月最新，含bandix/集客AC） ====================
 # 格式：PLUGIN_CN: 插件名=中文名称 - 详细功能说明
