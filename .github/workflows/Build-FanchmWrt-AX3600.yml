@@ -1,4 +1,4 @@
-name: Build-FanchmWrt-X86-64
+name: Build-FanchmWrt-AX3600
 on:
   repository_dispatch:
   workflow_dispatch:
