@@ -187,31 +187,42 @@ jobs:
               fi
             done
           ' bash {} +
+          # 新增：打印重命名后的所有固件文件，方便调试确认
+          echo "✅ 重命名后固件目录完整文件列表："
+          ls -l "${{ env.FIRMWARE }}/"
 
-      # ========== 新增：获取固件列表并写入环境变量（邮件/Release共用） ==========
+      # ========== 修复：获取固件列表（解决子shell变量失效+bash -e 退出问题） ==========
       - name: 获取固件列表（邮件/Release共用）
         id: get_fw_list
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
         run: |
           FW_LIST=""
           if [ -d "${{ env.FIRMWARE }}" ]; then
-            FW_FILES=$(ls "${{ env.FIRMWARE }}"/FanchmWrt-*.img.gz 2>/dev/null)
-            if [ -n "$FW_FILES" ]; then
-              for fw in $FW_FILES; do
-                FW_LIST="$FW_LIST\n- $(basename "$fw")"
-              done
-            else
-              FW_LIST="\n- 已编译固件：\n"
-              ls "${{ env.FIRMWARE }}"/FanchmWrt-* 2>/dev/null | while read line; do
-                FW_LIST="$FW_LIST  - $(basename "$line")"
+            # 方案1：优先匹配 .img.gz 格式固件（用for循环替代ls+管道，避免子shell问题）
+            for fw in "${{ env.FIRMWARE }}"/FanchmWrt-*.img.gz; do
+              # 检查文件是否真实存在（避免通配符匹配失败时的空文件路径）
+              if [ -f "$fw" ]; then
+                FW_LIST+="\n- $(basename "$fw")"
+              fi
+            done
+            
+            # 方案2：如果没有 .img.gz 固件，匹配所有 FanchmWrt- 开头的固件
+            if [ -z "$FW_LIST" ]; then
+              FW_LIST="\n- 已编译固件："
+              for fw in "${{ env.FIRMWARE }}"/FanchmWrt-*; do
+                if [ -f "$fw" ]; then
+                  FW_LIST+="\n  - $(basename "$fw")"
+                fi
               done
             fi
           else
             FW_LIST="\n- 未获取到固件目录"
           fi
-          # 写入环境变量（处理换行符）
-          echo "FIRMWARE_LIST=${FW_LIST}" >> $GITHUB_ENV
+          
+          # 写入环境变量（保留换行符，适配后续邮件/Release展示）
+          echo "FIRMWARE_LIST=${FW_LIST}" >> "$GITHUB_ENV"
           echo "✅ 固件列表：$FW_LIST"
+        shell: /usr/bin/bash -e {0}
 
       - name: 生成发布标签(Generate release tag)
         id: tag
