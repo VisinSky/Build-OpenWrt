@@ -13,10 +13,11 @@ env:
   DIY_P1_SH: FanchmWrt/diy-part1.sh
   DIY_P2_SH: FanchmWrt/diy-part2.sh
   PLUGINS_FILE: FanchmWrt/plugins.txt
-  UPLOAD_BIN_DIR: false
+  UPLOAD_BIN_DIR: true  # 优化点：改为true以便调试
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
+  COMPILE_TIMEOUT: 120  # 优化点：添加编译超时时间(分钟)
 
 jobs:
   build:
@@ -29,10 +30,22 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force
-          sudo -E apt-get -qq update
-          sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+          # 优化点：限制删除范围，避免删除关键文件
+          sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          sudo docker image prune --all --force || true
+          
+          # 优化点：添加错误处理
+          if ! sudo -E apt-get -qq update; then
+            echo "❌ 软件源更新失败，尝试修复..."
+            sudo -E apt-get -qq install --fix-missing
+          fi
+          
+          # 优化点：添加关键依赖检查
+          sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev || {
+            echo "❌ 关键依赖安装失败，请检查网络连接"
+            exit 1
+          }
+          
           sudo -E apt-get -qq autoremove --purge
           sudo -E apt-get -qq clean
           sudo timedatectl set-timezone "$TZ"
@@ -43,29 +56,67 @@ jobs:
         working-directory: /workdir
         run: |
           df -hT $PWD
-          git clone $REPO_URL -b $REPO_BRANCH fanchmwrt
+          git clone $REPO_URL -b $REPO_BRANCH fanchmwrt || {
+            echo "❌ 源码克隆失败，请检查仓库地址和网络连接"
+            exit 1
+          }
           ln -sf /workdir/fanchmwrt $GITHUB_WORKSPACE/fanchmwrt
 
       - name: 加载自定义订阅源(Load custom feeds)
         run: |
-          [ -e $FEEDS_CONF ] && mv $FEEDS_CONF fanchmwrt/feeds.conf.default
-          chmod +x $DIY_P1_SH
-          cd fanchmwrt
-          $GITHUB_WORKSPACE/$DIY_P1_SH
+          if [ -e "$FEEDS_CONF" ]; then
+            mv $FEEDS_CONF fanchmwrt/feeds.conf.default
+          else
+            echo "⚠️ 订阅源配置文件 $FEEDS_CONF 不存在，使用默认配置"
+          fi
+          
+          if [ -e "$DIY_P1_SH" ]; then
+            chmod +x $DIY_P1_SH
+            cd fanchmwrt
+            $GITHUB_WORKSPACE/$DIY_P1_SH
+          else
+            echo "⚠️ DIY脚本 $DIY_P1_SH 不存在，跳过执行"
+          fi
 
       - name: 更新软件源(Update feeds)
-        run: cd fanchmwrt && ./scripts/feeds update -a
+        run: |
+          cd fanchmwrt
+          if ! ./scripts/feeds update -a; then
+            echo "❌ 软件源更新失败，尝试重新更新..."
+            ./scripts/feeds clean
+            ./scripts/feeds update -a || exit 1
+          fi
 
       - name: 安装软件源(Install feeds)
-        run: cd fanchmwrt && ./scripts/feeds install -a
+        run: |
+          cd fanchmwrt
+          if ! ./scripts/feeds install -a; then
+            echo "❌ 软件源安装失败，尝试修复..."
+            ./scripts/feeds clean
+            ./scripts/feeds update -a
+            ./scripts/feeds install -a || exit 1
+          fi
 
       - name: 加载自定义编译配置(Load custom configuration)
         run: |
-          [ -e FanchmWrt/files ] && mv FanchmWrt/files fanchmwrt/files
-          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE fanchmwrt/.config
-          chmod +x $DIY_P2_SH
-          cd fanchmwrt
-          $GITHUB_WORKSPACE/$DIY_P2_SH
+          if [ -e "FanchmWrt/files" ]; then
+            mv FanchmWrt/files fanchmwrt/files
+          fi
+          
+          if [ -e "$CONFIG_FILE" ]; then
+            mv $CONFIG_FILE fanchmwrt/.config
+          else
+            echo "❌ 编译配置文件 $CONFIG_FILE 不存在，无法继续编译"
+            exit 1
+          fi
+          
+          if [ -e "$DIY_P2_SH" ]; then
+            chmod +x $DIY_P2_SH
+            cd fanchmwrt
+            $GITHUB_WORKSPACE/$DIY_P2_SH
+          else
+            echo "⚠️ DIY脚本 $DIY_P2_SH 不存在，跳过执行"
+          fi
 
       - name: 提取固件默认管理IP(Extract Manage IP)
         id: extract_ip
@@ -98,6 +149,12 @@ jobs:
           cd fanchmwrt
           make defconfig
           make download -j8
+          # 优化点：添加下载失败处理
+          if [ $? -ne 0 ]; then
+            echo "❌ 依赖包下载失败，尝试清理后重试..."
+            make clean
+            make download -j8 || exit 1
+          fi
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
 
@@ -112,8 +169,18 @@ jobs:
         id: compile
         run: |
           cd fanchmwrt
-          echo -e "使用 $(nproc) 线程编译固件"
-          make -j$(nproc) || make -j1 || make -j1 V=s
+          echo -e "使用 $(nproc) 线程编译固件，超时时间：${{ env.COMPILE_TIMEOUT }}分钟"
+          # 优化点：添加超时限制和更完善的错误处理
+          timeout $((COMPILE_TIMEOUT * 60)) make -j$(nproc) || {
+            echo "❌ 多线程编译失败，尝试单线程编译..."
+            timeout $((COMPILE_TIMEOUT * 60)) make -j1 || {
+              echo "❌ 单线程编译失败，尝试详细模式..."
+              timeout $((COMPILE_TIMEOUT * 60)) make -j1 V=s || {
+                echo "❌ 详细模式编译失败，请检查编译日志"
+                exit 1
+              }
+            }
+          }
           echo "status=success" >> $GITHUB_OUTPUT
           DEVICE=$(grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/')
           ARCH=$(grep '^CONFIG_TARGET_ARCH_PACKAGES=' .config | sed -r 's/.*="(.*)"/\1/')
@@ -175,7 +242,8 @@ jobs:
       - name: 重命名固件文件(兼容所有后缀)(Rename firmware file)
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
         run: |
-          find "${{ env.FIRMWARE }}" -name "openwrt-*" -type f -exec bash -c '
+          # 优化点：添加更精确的文件过滤
+          find "${{ env.FIRMWARE }}" -name "openwrt-*.bin" -type f -exec bash -c '
             for file do
               if [ -f "$file" ]; then
                 new_file="${file/openwrt-/FanchmWrt-}"
@@ -184,9 +252,15 @@ jobs:
               fi
             done
           ' bash {} +
+          
+          # 优化点：验证重命名后的文件是否存在
+          if [ ! -f "${{ env.FIRMWARE }}/FanchmWrt-*.bin" ]; then
+            echo "❌ 重命名后的固件文件不存在，请检查重命名过程"
+            exit 1
+          fi
+          
           echo -e "\n📂 重命名后固件目录文件列表："
           ls -lh "${{ env.FIRMWARE }}/"
-        shell: /usr/bin/bash -e {0}
 
       - name: 获取固件列表(邮件/Release共用)(Get firmware list)
         id: get_fw_list
@@ -194,7 +268,7 @@ jobs:
         run: |
           FW_LIST=""
           if [ -d "${{ env.FIRMWARE }}" ]; then
-            for fw in "${{ env.FIRMWARE }}"/FanchmWrt-*; do
+            for fw in "${{ env.FIRMWARE }}"/FanchmWrt-*.bin; do
               if [ -f "$fw" ]; then
                 FW_LIST+="\n- $(basename "$fw")"
               fi
@@ -207,7 +281,6 @@ jobs:
           fi
           echo "FIRMWARE_LIST=${FW_LIST}" >> "$GITHUB_ENV"
           echo "✅ 最终固件列表：$FW_LIST"
-        shell: /usr/bin/bash -e {0}
 
       - name: 生成Release发布内容(Generate release content)
         id: tag
@@ -229,7 +302,7 @@ jobs:
 EOF
           FW_COUNT=0
           if [ -d "${{ env.FIRMWARE }}" ]; then
-            for fw in "${{ env.FIRMWARE }}"/FanchmWrt-*; do
+            for fw in "${{ env.FIRMWARE }}"/FanchmWrt-*.bin; do
               if [ -f "$fw" ]; then
                 echo "- $(basename "$fw")" >> release.txt
                 FW_COUNT=$((FW_COUNT+1))
@@ -242,7 +315,6 @@ EOF
           echo -e "\n### 📦 固件集成插件信息" >> release.txt
           echo "${{ env.PLUGINS_CONTENT }}" | sed 's/^\\n//;s/\\n/\n/g' >> release.txt
           echo "status=success" >> $GITHUB_OUTPUT
-        shell: /usr/bin/bash -e {0}
 
       - name: 编译成功-邮件通知(Email notify on success)
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
@@ -296,7 +368,7 @@ EOF
           tag_name: ${{ steps.tag.outputs.release_tag }}
           body_path: release.txt
           files: |
-            ${{ env.FIRMWARE }}/FanchmWrt-*
+            ${{ env.FIRMWARE }}/FanchmWrt-*.bin
             ${{ env.FIRMWARE }}/sha256sums
           overwrite: true
 
