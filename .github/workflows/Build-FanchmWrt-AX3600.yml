@@ -176,7 +176,7 @@ jobs:
       - name: 重命名固件文件(Rename firmware file)
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
         run: |
-          find "${{ env.FIRMWARE }}" -name "openwrt-*.img.gz" -exec bash -c '
+          find "${{ env.FIRMWARE }}" -name "openwrt-*.*" -exec bash -c '
             for file do
               if [ -f "$file" ]; then
                 new_file="${file/openwrt-/FanchmWrt-}"
@@ -195,7 +195,7 @@ jobs:
         run: |
           FW_LIST=""
           if [ -d "${{ env.FIRMWARE }}" ]; then
-            FW_FILES=$(ls "${{ env.FIRMWARE }}"/FanchmWrt-*.img.gz 2>/dev/null)
+            FW_FILES=$(ls "${{ env.FIRMWARE }}"/FanchmWrt-*.* 2>/dev/null)
             if [ -n "$FW_FILES" ]; then
               for fw in $FW_FILES; do
                 FW_LIST="$FW_LIST\n- $(basename "$fw")"
@@ -228,7 +228,7 @@ jobs:
           echo "- 登录密码：password" >> release.txt
           echo -e "\n### 📁 固件文件列表" >> release.txt
           if [ -d "${{ env.FIRMWARE }}" ]; then
-            FW_FILES=$(ls "${{ env.FIRMWARE }}"/FanchmWrt-*.img.gz 2>/dev/null)
+            FW_FILES=$(ls "${{ env.FIRMWARE }}"/FanchmWrt-*.* 2>/dev/null)
             if [ -n "$FW_FILES" ]; then
               for fw in $FW_FILES; do
                 echo "- $(basename "$fw")" >> release.txt
@@ -294,7 +294,7 @@ jobs:
           tag_name: ${{ steps.tag.outputs.release_tag }}
           body_path: release.txt
           files: |
-            ${{ env.FIRMWARE }}/FanchmWrt-*.img.gz
+            ${{ env.FIRMWARE }}/FanchmWrt-*.*
             ${{ env.FIRMWARE }}/sha256sums
           overwrite: true
 
