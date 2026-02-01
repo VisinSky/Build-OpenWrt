@@ -5,7 +5,7 @@ src-git routing https://git.openwrt.org/feed/routing.git^3eb59e9471858c838919797
 src-git telephony https://git.openwrt.org/feed/telephony.git^2a4541d46199ac96fac214d02c908402831c4dc6
 src-git fanchmwrt https://github.com/fanchmwrt/fanchmwrt-packages.git
 src-git gecoosac https://github.com/lwb1978/openwrt-gecoosac.git
-# src-git ddnsgo  https://github.com/sirpdboy/luci-app-ddns-go.git
+src-git ddnsgo  https://github.com/sirpdboy/luci-app-ddns-go.git
 src-git watchdog https://github.com/sirpdboy/luci-app-watchdog.git
 src-git lucky https://github.com/gdy666/luci-app-lucky.git
 src-git bandix https://github.com/timsaya/openwrt-bandix.git
